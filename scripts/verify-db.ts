@@ -3,7 +3,7 @@ import nextEnv from "@next/env";
 import { randomUUID } from "node:crypto";
 import { Prisma, type PrismaClient } from "../generated/prisma/client";
 import { createDatabaseClient } from "../lib/server/db";
-import { getPortfolioValuation } from "../lib/server/portfolio-valuation";
+import { getPortfolioValuation } from "./fixture-valuation";
 import { seedDatabase } from "../prisma/seed";
 import { seedMovements, seedTime } from "../prisma/seed-data";
 

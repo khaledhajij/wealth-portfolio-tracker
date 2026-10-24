@@ -4,9 +4,11 @@ Plan created: phase 0, 2026-10-24. Current implementation status: see docs/STATU
 Deadline: end of Sunday, 2026-10-25, Damascus time.
 Implementation phases below are proposals, each requiring a separate user instruction.
 
+Phase 3 decision (2026-10-24): the user authorized authentication and server DAL/services only, without AI/full dashboard. Better Auth/Prisma adapter 1.7.12 is selected, using existing synthetic identities with library password hashes and database sessions. Details and official references: [AUTH](docs/AUTH.md). Auth setup, minimal login/account UI, protected JSON adapters and portfolio read/add-position/movement/price services are implemented locally; live migration/session acceptance remains blocked, as recorded in STATUS. Registration, account recovery and membership management stay deferred. Earlier proposal text remains a record of the plan, not a claim that all acceptance gates passed.
+
 ## 1. Sources and requirement boundaries
 
-Primary source: [Talent Syria technical assessment](<Talent Syria - Technical assessment.pdf>), all three pages read as text and visually inspected in this session.
+Primary source: Talent Syria technical assessment (original filename: `Talent Syria - Technical assessment.pdf`). All three pages were read as text and visually inspected during phase 0. The original PDF is not present in the current phase 3 workspace; the requirement record below is retained from phase 0.
 Second source: the user's foundational scope and phase 0 instructions in this conversation.
 
 | Source | Explicit requirement or statement | Consequence |

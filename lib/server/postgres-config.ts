@@ -19,8 +19,10 @@ function databaseCa() {
   const configured = process.env.DATABASE_SSL_CA_FILE;
   if (!configured) return undefined;
   try {
-    const path = resolve(process.cwd(), configured);
-    const pem = readFileSync(path, "utf8");
+    // Runtime-provided certificate, not a bundle dependency. Do not trace the
+    // entire workspace (including local configuration) into the server output.
+    const path = resolve(/* turbopackIgnore: true */ process.cwd(), configured);
+    const pem = readFileSync(/* turbopackIgnore: true */ path, "utf8");
     if (!new X509Certificate(pem).ca) throw new Error();
     return { path, pem };
   } catch {

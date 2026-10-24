@@ -19,15 +19,65 @@ enum AssetType {
   CASH
 }
 
-// Domain identity only. No passwords, sessions or auth adapter assumptions.
-// Phase 3 must reconcile this model with the chosen authentication library.
+// Better Auth identity; existing domain IDs and memberships are preserved.
 model User {
-  id          String             @id @default(cuid())
-  email       String             @unique
-  name        String
-  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
-  memberships Membership[]
-  movements   PositionMovement[]
+  id              String             @id @default(cuid())
+  email           String             @unique
+  name            String
+  createdAt       DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime           @default(now()) @updatedAt @db.Timestamptz(3)
+  emailVerified   Boolean            @default(false)
+  image           String?
+  sessions        Session[]
+  accounts        Account[]
+  pricedPositions Position[]         @relation("PriceActor")
+  memberships     Membership[]
+  movements       PositionMovement[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  password              String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @default(now()) @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @default(now()) @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
 }
 
 model Portfolio {
@@ -53,17 +103,19 @@ model Membership {
 }
 
 model Position {
-  id          String             @id @default(cuid())
-  portfolioId String
-  assetType   AssetType
-  label       String             @db.VarChar(160)
-  symbol      String             @db.VarChar(32)
-  unitPrice   Decimal            @db.Decimal(28, 8)
-  priceAsOf   DateTime           @db.Timestamptz(3)
-  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
-  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
-  portfolio   Portfolio          @relation(fields: [portfolioId], references: [id], onDelete: Restrict, onUpdate: Restrict)
-  movements   PositionMovement[]
+  id             String             @id @default(cuid())
+  portfolioId    String
+  assetType      AssetType
+  label          String             @db.VarChar(160)
+  symbol         String             @db.VarChar(32)
+  unitPrice      Decimal            @db.Decimal(28, 8)
+  priceAsOf      DateTime           @db.Timestamptz(3)
+  priceUpdatedBy String?
+  priceActor     User?              @relation("PriceActor", fields: [priceUpdatedBy], references: [id], onDelete: Restrict)
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime           @updatedAt @db.Timestamptz(3)
+  portfolio      Portfolio          @relation(fields: [portfolioId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  movements      PositionMovement[]
 
   @@unique([id, portfolioId])
   @@unique([portfolioId, assetType, symbol])

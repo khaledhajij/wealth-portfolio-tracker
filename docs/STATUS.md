@@ -1,7 +1,50 @@
 # Status
 
-As of 2026-10-24. Current phase: 2 - NOT COMPLETE; user-terminal connectivity succeeded, migrations and database acceptance remain unverified.
+As of 2026-10-24. Current phase: 3 - code implemented, live database/session acceptance BLOCKED. Phase 2 database acceptance remains open.
 Assessment deadline: end of 2026-10-25, Damascus time.
+
+## Phase 3 current implementation
+
+- Read PLAN/status, applicable instruction locations, Git/dependencies and existing database code. No existing authentication integration found; retained the single application, all domain IDs/fixtures and both earlier migrations. No applicable AGENTS file found.
+- Selected Better Auth/Prisma adapter 1.7.12 and Zod 4.6.7, exact-pinned in package.json/package-lock.json. Official Next/Prisma/email-password/schema/session/cookie/security docs and installed declarations/crypto were inspected. npm peer metadata matches installed Next 16.4.3/React 19.3.1/Prisma 7.10.1. Selection/reference details: AUTH.md.
+- Added Better Auth email/password with public signup disabled, database sessions, eight-hour expiry, no cookie session cache or automatic refresh, origin validation and process-local rate limiting. Exposed only sign-in/out/get-session auth paths. HttpOnly/SameSite=Lax cookies are Secure on HTTPS; only loopback HTTP is accepted for local runs. No homegrown password/session system or identity switcher.
+- Additive migration `202610240003_auth` extends User and creates Session/Account/Verification; Position gains nullable priceUpdatedBy. Earlier prices are not assigned an invented actor. Existing domain data/history and migrations are untouched. Application of all migrations remains unverified.
+- Adapted seed: library scrypt hashes for the four synthetic users, credential provider/account IDs tied to existing User IDs; repeated seed preserves hashes and rejects conflicting passwords. Private DEMO_ACCOUNT_PASSWORD required by CLI seed. Added auth:setup, which generated missing local secret/password/origin in ignored .env.local without logging them or overwriting DATABASE_URL/CA.
+- Added server-only session reader and services for listing/reading portfolios/resources, adding positions, appending movements and updating manual prices. All production identity comes from the session; membership/resources checked in each operation. All three member roles read; only Owner/Editor write. Strict Zod contracts reject identity fields and invalid numeric/time data. Writes use serializable transactions, row locks, bounded conflict retries, nonnegative balances, cash rules and request-key content checks. Money remains Decimal strings. No P&L/settlement.
+- Added minimal sign-in/account/sign-out interface and protected JSON API adapters. No full dashboard, financial forms or AI. Private API responses use private/no-store; pages with session data are dynamic. No private query-result cache. Reused DB pool only. Old caller-actor valuation helper moved to scripts; production valuation derives identity from session-bound service.
+- `test:auth` is an actual PostgreSQL/library integration verifier with migration/checksum preflight, repeated credential seed, real sessions/cookie checks and rolled-back service scenarios. It is not reported as passed. Unit DB/session doubles are clearly labeled and never used as runtime identities.
+
+### Phase 3 observed checks
+
+| Command/check | Actual result |
+| --- | --- |
+| Official docs, npm metadata, exact install; `npm ls --depth=0` | Install succeeded (18 packages added); direct dependency tree valid. Existing pending install-script warnings remain; no extra script approvals. |
+| `npm run db:inspect` with network access | Timeout/termination; no authenticated agent database inspection or migrations applied. User-terminal success from the earlier snapshot remains distinct. |
+| `npm run auth:setup` | Generated missing local auth settings only; values suppressed, existing settings preserved. |
+| `npm run db:generate`, Prisma format, `npm run db:validate` | Exit 0; generated Prisma 7.10.1, formatted and validated schema. No database execution implied. |
+| `npm test` | Exit 0, 25 tests passed, 0 skipped: 7 valuation + 18 access/domain/config/hash tests, with explicit DB/session doubles where applicable. |
+| `npm run typecheck`, `npm run lint` | Final runs exit 0 after correcting a ProcessEnv test-fixture type mismatch. |
+| `npm run build` | Successful production build with static introduction/sign-in and dynamic account/API routes. Initial build failed the same test-fixture type issue; fixed. A runtime CA filesystem tracing warning was resolved with Turbopack ignore annotations rather than tracing the workspace into server output. |
+| `npm run test:auth` with network access | Exit 1 at **read-only migration preflight**, before seed/session/financial writes. No live auth acceptance claimed. |
+| Production local HTTP/Chromium | Sign-in renders labeled email/password inputs, no horizontal overflow at the checked viewport. /account redirects anonymous users to /sign-in. All 4 read and 3 write API paths return 401 without a session; forged user/role headers and forged cookie also return 401. Public registration path returns 404; get-session returns null. Responses use private/no-store. Synthetic invalid login stays on sign-in with a generic error and button re-enabled. Browser console contains expected HTTP failure messages from intentional negative probes; no clean-console claim. Server stopped after checks. |
+| Final build/bundle/Git checks | Final production build exit 0. Scanned 14 browser JS bundles for the three configured DATABASE_URL/BETTER_AUTH_SECRET/DEMO_ACCOUNT_PASSWORD values: no matches. Exact direct versions match installed lock entries. .env.local and CA path ignored. Existing migration SQL has no Git diff; diff whitespace check passes (Windows LF/CRLF notices only). New authored text/link checks passed. No commit made. |
+
+### Blocked/unverified and next action
+
+- Agent cannot establish a PostgreSQL session. **No phase 3 migration was applied and no real credential seed/session login succeeded here.** `test:auth` stopped before writes; no database reset, managed-schema edits or data deletion. User must run the documented sequence from the terminal where inspection succeeds (AUTH.md/README), then supply nonsecret results. Do not rerun migrations blindly against conflicting tables/history.
+- PostgreSQL SQL behavior, seed repeatability, live Owner/Editor/Viewer sessions, session expiry/logout, successful financial writes and actual concurrent withdrawal scheduling remain unverified. Library hashing and local denial paths were tested; these do not close live gates. Phase 2 remains incomplete until test:db succeeds too.
+- Non-owner runtime DB privilege separation and Supabase Data API/RLS exposure remain unresolved; connection role/managed settings were not changed. Auth rate limits are per process, not distributed. These limits must be resolved before remote exposure; no deployment is authorized.
+- Membership management, recovery/onboarding, portfolio creation/rename UI, full dashboard/forms, AI, market data and later phases remain deferred. No external OAuth/email, real personal data, remote repository or submission actions.
+- The phase 0 assessment PDF is absent from the current workspace. PLAN now identifies it as a historical source rather than linking to a missing file; no PDF was deleted or reread in phase 3. This does not block the scoped auth implementation.
+
+### Phase 3 changed files
+
+- Auth/config/UI: package.json, package-lock.json, .env.example, app/page.tsx, app/sign-in/*, app/account/*, app/api/auth/[...all]/route.ts, lib/auth-client.ts, lib/server/auth-settings.ts, auth.ts, session.ts, db.ts, postgres-config.ts.
+- DAL/API: lib/server/service-error.ts, contracts.ts, portfolio-service.ts, portfolios.ts, portfolio-valuation.ts; app/api/portfolios/**/route.ts.
+- Data/checks: prisma/schema.prisma, prisma/migrations/202610240003_auth/migration.sql, prisma/seed.ts, seed-data.ts, seed-auth.ts; scripts/setup-auth.ts, verify-auth.ts, fixture-valuation.ts, verify-db.ts; tests/access.test.ts.
+- Docs: README.md, PLAN.md, docs/AUTH.md, docs/DATABASE.md, docs/STATUS.md, docs/AI_USAGE.md. Private local settings generated in ignored .env.local; values not documented. No existing migration SQL edited.
+
+## Earlier phase 2 snapshot (historical)
 
 ## Current result: authenticated user-terminal connection
 

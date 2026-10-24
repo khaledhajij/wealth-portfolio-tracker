@@ -20,18 +20,23 @@
     "db:status": "prisma migrate status",
     "db:inspect": "node --import tsx scripts/inspect-db.ts",
     "db:seed": "prisma generate && prisma db seed",
-    "test": "prisma generate && node --conditions=react-server --import tsx --test tests/valuation.test.ts",
+    "test": "prisma generate && node --conditions=react-server --import tsx --test tests/*.test.ts",
+    "test:auth": "prisma generate && node --conditions=react-server --import tsx scripts/verify-auth.ts",
+    "auth:setup": "node --import tsx scripts/setup-auth.ts",
     "test:db": "prisma generate && node --conditions=react-server --import tsx scripts/verify-db.ts"
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "1.7.12",
     "@next/env": "16.4.3",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "better-auth": "1.7.12",
     "next": "16.4.3",
     "pg": "8.23.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "server-only": "0.0.1"
+    "server-only": "0.0.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

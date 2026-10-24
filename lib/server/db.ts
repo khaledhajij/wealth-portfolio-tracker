@@ -13,3 +13,9 @@ export function createDatabaseClient() {
   const adapter = new PrismaPg(postgresConnectionOptions(connectionString));
   return new PrismaClient({ adapter });
 }
+
+// Reuse connections across requests/hot reloads, never cache private query results.
+const databaseGlobal = globalThis as typeof globalThis & { portfolioDatabase?: PrismaClient };
+export function getDatabase() {
+  return databaseGlobal.portfolioDatabase ??= createDatabaseClient();
+}

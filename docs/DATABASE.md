@@ -2,6 +2,8 @@
 
 ## Execution status
 
+Phase 3 update: a third additive auth migration now exists (202610240003_auth); the earlier two remain unchanged. User/Session/Account/Verification are coordinated with Better Auth 1.7.12. CLI seed now also requires private DEMO_ACCOUNT_PASSWORD and creates library password hashes for the existing synthetic identities; `npm run auth:setup` generates missing local settings. See [AUTH.md](AUTH.md) for current setup, session/service code and acceptance. Agent database inspection still times out and test:auth fails at read-only migration preflight. No phase 3 migration/seed is execution-verified. Historical phase 2-only statements below describe the earlier state, not current auth implementation.
+
 Current evidence (2026-10-24): the user supplied a successful authenticated inspector result for PostgreSQL 17.11 through Session pooler 5432, with no public tables and no Prisma migration history. The agent's restricted attempt returned EACCES and its elevated retry timed out. Existing migrations were reviewed and preserved; no migration or seed ran in this follow-up. Execute the sequence below in the working user terminal and report results. Migration application, repeatable seed, SQL constraints and database-backed valuation remain unverified; phase 2 is incomplete.
 
 ### Earlier troubleshooting history

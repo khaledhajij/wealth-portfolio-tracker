@@ -1,4 +1,4 @@
-// All accounts are synthetic and cannot sign in. No credentials are seeded.
+// Synthetic identities retained from phase 2. seed-auth.ts adds library password hashes.
 export const seedUsers = [
   { id: "demo-owner", email: "owner@example.invalid", name: "Demo Owner" },
   { id: "demo-editor", email: "editor@example.invalid", name: "Demo Editor" },

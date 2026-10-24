@@ -2,6 +2,7 @@ import nextEnv from "@next/env";
 import { Prisma, type PrismaClient } from "../generated/prisma/client";
 import { createDatabaseClient } from "../lib/server/db";
 import { seedUsers, seedPortfolios, seedMemberships, seedPositions, seedMovements } from "./seed-data";
+import { demoPassword, seedDemoCredentials } from "./seed-auth";
 
 export async function seedDatabase(db: PrismaClient) {
   // Insert missing fixtures only. Never reset user changes or UPDATE immutable history.
@@ -39,11 +40,13 @@ if (process.argv[1]?.replaceAll("\\", "/").endsWith("/prisma/seed.ts")) {
   nextEnv.loadEnvConfig(process.cwd());
   let db: PrismaClient | undefined;
   try {
+    const password = demoPassword();
     db = createDatabaseClient();
     await seedDatabase(db);
-    console.log("Synthetic seed complete; existing rows preserved. Accounts cannot sign in.");
+    await seedDemoCredentials(db, password);
+    console.log("Synthetic domain and credential seed complete; existing rows and password hashes preserved.");
   } catch {
-    console.error("Seed failed. Check DATABASE_URL, migration status, and fixture conflicts. No URL logged.");
+    console.error("Seed failed. Check DATABASE_URL, DEMO_ACCOUNT_PASSWORD, migration status, and fixture conflicts. Secrets suppressed.");
     process.exitCode = 1;
   } finally {
     await db?.$disconnect();
