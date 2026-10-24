@@ -1,8 +1,8 @@
 # Wealth Portfolio Tracker
 
-Talent Syria assessment prototype. **Phase 3: authentication and authorized server services implemented; live database/session acceptance is blocked in the agent environment.**
+Talent Syria assessment prototype. **Phase 4 functional scope complete: local checks passed and the user supplied successful real HTTP/PostgreSQL concurrency verification.**
 
-The home page remains a static introduction without fabricated balances. Better Auth demo sign-in/sign-out, session-bound portfolio APIs and server-only Decimal valuation are implemented. Successful credential login and database writes have not been verified here. No full dashboard or AI is implemented. See [authentication setup](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
+The home page remains a static introduction without fabricated balances. Better Auth demo sign-in/sign-out, session-bound portfolio APIs and server-only Decimal valuation are implemented. The user's updated test:api output verifies the requested access/input/valuation/replay/concurrency assertions; the agent's separate database connection still times out. No full dashboard or AI is implemented. See [API contracts/concurrency/tests](docs/API.md), [authentication setup](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
 
 ## Prerequisites and package manager
 
@@ -75,6 +75,10 @@ npm run test:auth
 There are now **three** migrations: the original two plus additive `202610240003_auth`. Before applying them, inspect current tables/history again; the user's empty-database result is an earlier snapshot. `db:status` may report pending migrations and return a nonzero exit code; conflicting history or connection errors require diagnosis before proceeding. After applying, all three should be finished with matching local checksums. `db:migrate` uses `prisma migrate deploy`, which needs no shadow database; do not use reset/db push. Run commands individually and stop on errors. See [database safeguards](docs/DATABASE.md).
 
 Once migrations and seed succeed, run `npm run dev`, open `/sign-in`, and use `owner@example.invalid`, `editor@example.invalid`, `viewer@example.invalid` or `other@example.invalid` with your private `DEMO_ACCOUNT_PASSWORD`. `/account` shows a real validated session and a link to the authorized portfolio JSON API; it is not a role switcher. Sign out before signing in as another account. No public registration, OAuth or email setup is required.
+
+Phase 4 adds GET `.../summary`, GET `.../positions` and PATCH `.../positions/:positionId/valuation`; existing POST positions/movements and position PATCH remain. Position creation now returns 201. Portfolio errors add a stable `code` alongside `error`. Inputs/DTOs and exact session/membership/resource checks are documented in [API](docs/API.md).
+
+After a fresh `npm run build`, use `npm run test:api` for the real HTTP/database suite. It verifies migration history before writes, uses real demo sessions, starts its own loopback server, and leaves new labeled synthetic verification portfolios/history without resetting existing demo data. The user supplied all functional PASS lines: two blocked SQL requests observed, one decrease of 8 accepted from quantity 10, the other rejected, final quantity 2; simultaneous identical keys insert once and return the same DTO. This is user-terminal evidence; the agent's own attempt failed at read-only preflight. No migration/schema/dependency/UI changes were needed in phase 4. Existing auth-rate-limit/runtime-privilege limitations remain in AUTH/STATUS; no production-readiness claim is made.
 
 ## Checks and production-mode local run
 

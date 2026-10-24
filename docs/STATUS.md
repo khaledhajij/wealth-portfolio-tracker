@@ -1,9 +1,57 @@
 # Status
 
-As of 2026-10-24. Current phase: 3 - code implemented, live database/session acceptance BLOCKED. Phase 2 database acceptance remains open.
+As of 2026-10-25. Current phase: 4 - COMPLETE for the requested functional scope, based on local agent checks plus the user's supplied real HTTP/PostgreSQL verification output. Agent-side database connectivity remains blocked.
 Assessment deadline: end of 2026-10-25, Damascus time.
 
-## Phase 3 current implementation
+## Phase 4 current implementation
+
+### Final user-terminal acceptance evidence
+
+- User supplied the updated verifier's successful access/input/origin and 600/700/fraction/replay/actor PASS lines, followed by successful concurrent-decrease and simultaneous-identical-key PASS lines. All functional assertions in test:api were reached and passed in the supplied output; a process exit code/cleanup transcript was not supplied and is not invented. This was the user's execution, not an agent-run successful database test.
+- Concurrent-decrease diagnostic: overlapObserved=true, observationFailed=false, maxBlockedQueries=2, maxTaggedQueries=0, guardSucceeded=true; responses 200 and 400/INVALID_REQUEST; finalQuantity=2; movementCount=2 (opening movement plus one decrease). This verifies observed overlap and rejection of the second decrease of 8 from quantity 10 in this scenario.
+- Simultaneous identical requestKey verification passed: exactly one inserted movement and the same returned DTO. The separate replay-conflict and actor-attribution checks also passed before the concurrency check.
+- None of the observed blocked queries matched the application_name tag. The blocker-graph observer succeeds without that metadata, showing why the previous tag-only observer was insufficient on this run. The original earlier failure's exact assertion was not captured; do not claim it was independently diagnosed retrospectively.
+- Phase 4 closes here. No next phase, UI, AI, privilege change or authentication behavior fix is authorized by these results. Existing rate-limit/runtime privilege limitations remain recorded below. This follow-up changes only README.md, docs/API.md, docs/STATUS.md and docs/AI_USAGE.md; no code/database changes or new test run.
+
+### Earlier failed diagnostic attempts (historical)
+
+- User-terminal follow-up: supplied test:api output passes the real HTTP access/input/origin checks and the 600/700/fraction/replay/actor checks, then fails an assertion in the concurrent-decrease stage. The old message does not identify which assertion; concurrency and simultaneous-key acceptance are still open. This is user-reported execution, separate from agent connectivity.
+- Updated verifier only at that point: concurrency observation follows the guard transaction's actual backend blocker graph using pg_blocking_pids (including queued blockers), rather than requiring application_name to survive the pooler. Application-name matching remains a diagnostic count. Prints only safe observation counts, HTTP statuses/allowlisted codes and this synthetic fixture's final quantity/movement count before assertions, with precise sub-stages. Production transaction/authorization code and pass thresholds were unchanged; the later successful evidence is recorded above.
+- Follow-up checks: typecheck and lint exit 0. Agent test:api still exits 1 at read-only migration preflight, before any writes. The updated SQL observer and actual concurrent requests require a user-terminal rerun; no successful new integration result is claimed.
+- Reread repository instructions/PLAN/current status, Git/dependencies and existing services/contracts/routes/tests before changes. Git was clean at phase start; no applicable AGENTS file found. Preserved phase 3 auth/UI and all migrations. Installed runtime remains Node 24.18.0/npm 11.16.0; no dependency or schema change.
+- User reports previous execution succeeded, without new detailed command output. This is recorded separately from agent verification; it does not close named database/concurrency gates automatically.
+- Added session-bound getSummary/listPositions using the same membership-scoped read and server Decimal calculation. All three member roles read; writes remain Owner/Editor only. Foreign position IDs constrained by portfolio. New GET summary/positions routes and PATCH valuation alias reuse services; prior routes remain compatible. New position POST returns 201.
+- Strengthened strict contracts for whitespace resource IDs, uppercased symbol expansion and millisecond timestamp precision. Existing decimal scale/range/cash/future-time/identity-field checks retained. Minimal DTOs serialize decimal strings; summaries include observed manual price times, empty zero state and allocation. No UI or AI changed.
+- Portfolio API errors now add stable codes alongside safe error strings; private/no-store retained. No role/userId authority is read from headers/query/body. Raw errors/connection values are not returned.
+- Existing serializable write transaction locks Membership FOR SHARE and Position FOR UPDATE before movement aggregate/balance check/insert. Added bounded whole-transaction retries for raw P2010 SQLSTATE 40001/40P01 and movement-only P2002 key races, alongside P2034. Identical committed keys return the same DTO; conflicting payloads return 409. At most three attempts, no movement edits/deletes or automatic cash adjustment. Detailed mechanism: API.md.
+- Added real HTTP/DB verifier test:api with read-only history/checksum preflight, real library logins, isolated synthetic fixture portfolios, input/access/valuation/replay assertions and a forced-overlap PostgreSQL withdrawal test. It requires observing both blocked SQL requests before expecting one accepted -8 from quantity 10 and final quantity 2; no mock is counted as a PostgreSQL concurrency pass. Successful runs retain new labeled audit fixtures and revoke only their own sessions; no existing demo data is reset/deleted.
+
+### Phase 4 commands and observed evidence
+
+| Command/check | Actual result |
+| --- | --- |
+| Git/source/instruction/dependency review; official docs | Existing work preserved. Consulted Prisma **7** transactions, PostgreSQL 17 isolation, Next 16.4.3 Route Handlers and Zod 4.6 schemas. |
+| `npm run db:inspect` with network access | Exit 1: connection-timeout-or-termination. No authenticated agent database metadata retrieved. |
+| `npm test` | Final exit 0: **32 passed, 0 skipped** (7 valuation + 25 access/domain/HTTP/config/hash unit tests). DB/session doubles explicitly labeled; includes in-transaction aggregate/insert ordering, allowed/denied roles, replay/key races/retry bounds and invalid fields. |
+| `npm run typecheck`, `npm run lint` | Final exit 0. Initially fixed a test-script BigInt literal unsupported by the existing ES2017 compiler target; used BigInt constructor without changing tsconfig. |
+| `npm run build` | Exit 0; new summary and valuation routes included as dynamic server routes; existing static UI unchanged. |
+| Isolated loopback production HTTP probes | Exit 0: 7 anonymous/forged identity checks across new/existing routes return 401/UNAUTHENTICATED; malformed JSON 400/INVALID_REQUEST; untrusted Origin 403/FORBIDDEN; private/no-store verified. Own server stopped. No database writes from these probes. |
+| `npm run test:api` with network access | Exit 1 at **read-only migration preflight**; no test server, fixture, session or financial writes reached. PostgreSQL role/concurrency acceptance remains unverified. |
+| User-terminal updated `test:api` output | All reported functional PASS lines including real role/input/valuation/replay checks, observed overlapping decreases (200/400, final 2, 2 movements), and simultaneous identical-key deduplication. User-run evidence; no agent database success or process exit code inferred. |
+
+### Remaining verification and scope
+
+- Real authenticated phase 4 HTTP operations, request-key races and overlapping decreases passed in the latest supplied user-terminal output. The agent's own connection still fails at preflight; that environment limitation does not erase the user's successful evidence. Future reruns: build then test:api against inspected/seeded data as documented in API.md. No new migration is needed for phase 4.
+- The tested overlapping-decrease scenario confirms PostgreSQL protection in the supplied run; it is not a proof of every possible load/failure schedule. If future runs cannot observe their own waiting sessions/blocker graph, verification still fails explicitly. application_name forwarding is not required. No database privileges/settings changed automatically.
+- Existing runtime DB privilege/Supabase Data API exposure limitations remain; no remote deployment is authorized. The previously explained rememberMe=false 24-hour behavior is now corrected in AUTH documentation; auth behavior was not changed in this phase.
+- Reviewing installed auth rate-limit source for the four-account HTTP verifier showed that disableIpTracking=true bypasses Better Auth 1.7.12's IP-based limiter. AUTH now records this concrete existing gap; configured rateLimit options are not proof of effective throttling. No auth behavior or trusted-IP settings changed in phase 4; resolve before remote exposure.
+- No full dashboard/forms, UI expansion, AI, membership management, purchase execution, cash settlement, real personal data, remote repository, deployment, reset, managed-schema edits or email. Original migrations remain unchanged. Await user results/next scope; do not advance automatically.
+
+Changed files: lib/server/portfolio-service.ts, contracts.ts, http.ts; app/api/portfolios/[portfolioId]/positions/route.ts; new app/api/portfolios/[portfolioId]/summary/route.ts and positions/[positionId]/valuation/route.ts; tests/access.test.ts; new scripts/verify-api.ts; package.json (test script only); README.md, PLAN.md, docs/API.md, docs/AUTH.md, docs/STATUS.md, docs/AI_USAGE.md.
+
+Final review: 15 changed/new text files passed local-link/whitespace checks; direct pins match the existing lockfile and Git diff check passes. Schema/migrations/lockfile/UI have no phase 4 diff; env/CA paths remain ignored. After a test-only type cleanup, the focused access suite again passed all 25 access tests (the 7 valuation tests previously passed in the 32-test run). No commit created.
+
+## Phase 3 implementation snapshot (historical)
 
 - Read PLAN/status, applicable instruction locations, Git/dependencies and existing database code. No existing authentication integration found; retained the single application, all domain IDs/fixtures and both earlier migrations. No applicable AGENTS file found.
 - Selected Better Auth/Prisma adapter 1.7.12 and Zod 4.6.7, exact-pinned in package.json/package-lock.json. Official Next/Prisma/email-password/schema/session/cookie/security docs and installed declarations/crypto were inspected. npm peer metadata matches installed Next 16.4.3/React 19.3.1/Prisma 7.10.1. Selection/reference details: AUTH.md.

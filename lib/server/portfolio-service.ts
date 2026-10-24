@@ -9,6 +9,11 @@ type Tx = Prisma.TransactionClient;
 type UserReader = () => Promise<{ id: string }>;
 const missing = () => new ServiceError(404, "Resource not found.");
 
+function serializationConflict(error: Prisma.PrismaClientKnownRequestError) {
+  // Raw row-lock queries can expose PostgreSQL SQLSTATE through P2010.
+  return error.code === "P2034" || (error.code === "P2010" && ["40001", "40P01"].includes(String(error.meta?.code)));
+}
+
 async function member(db: Pick<Tx, "membership">, userId: string, portfolioId: string, write = false) {
   const row = await db.membership.findUnique({ where: { userId_portfolioId: { userId, portfolioId } } });
   if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role)) throw missing();
@@ -38,7 +43,7 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
     if (!user?.id) throw new ServiceError(401, "Sign in required.");
     return user.id;
   }
-  async function write<T>(userId: string, portfolioId: string, operation: (tx: Tx) => Promise<T>): Promise<T> {
+  async function write<T>(userId: string, portfolioId: string, operation: (tx: Tx) => Promise<T>, retryUnique = false): Promise<T> {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         return await db.$transaction(async (tx) => {
@@ -48,18 +53,33 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
           return operation(tx);
         }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
       } catch (error) {
-        const code = error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
-        if (code === "P2034" && attempt < 2) continue;
-        if (code === "P2002") throw new ServiceError(409, "A position or request key already exists.");
-        if (code === "P2034") throw new ServiceError(409, "Concurrent change; retry the operation.");
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+          const retry = serializationConflict(error) || (retryUnique && error.code === "P2002");
+          if (retry && attempt < 2) continue;
+          if (error.code === "P2002") throw new ServiceError(409, "A position or request key already exists.");
+          if (serializationConflict(error)) throw new ServiceError(409, "Concurrent change; retry the operation.");
+        }
         throw error;
       }
     }
     throw new ServiceError(409, "Retry the operation.");
   }
   async function lockPosition(tx: Tx, portfolioId: string, positionId: string) {
+    // Always lock before reading the movement aggregate. The aggregate check and
+    // INSERT share this serializable transaction; retries take a fresh snapshot.
     await tx.$queryRaw`SELECT id FROM "Position" WHERE id = ${positionId} AND "portfolioId" = ${portfolioId} FOR UPDATE`;
     return position(tx, portfolioId, positionId);
+  }
+
+  async function readPortfolio(portfolioId: string) {
+    const userId = await actor();
+    resourceId.parse(portfolioId);
+    const row = await db.membership.findUnique({ where: { userId_portfolioId: { userId, portfolioId } },
+      select: { role: true, portfolio: { select: { id: true, name: true, positions: {
+        orderBy: { id: "asc" }, include: { movements: { select: { signedQuantity: true } } },
+      } } } } });
+    if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role)) throw missing();
+    return row;
   }
   return {
     async listPortfolios() {
@@ -69,16 +89,20 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
       return rows.map((row) => ({ ...row.portfolio, role: row.role }));
     },
     async getPortfolio(portfolioId: string) {
-      const userId = await actor();
-      resourceId.parse(portfolioId);
-      // Membership and nested resources read together; no shared result cache.
-      const row = await db.membership.findUnique({ where: { userId_portfolioId: { userId, portfolioId } },
-        select: { role: true, portfolio: { select: { id: true, name: true, positions: {
-          orderBy: { id: "asc" }, include: { movements: { select: { signedQuantity: true } } },
-        } } } } });
-      if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role)) throw missing();
+      const row = await readPortfolio(portfolioId);
       return { id: row.portfolio.id, name: row.portfolio.name, role: row.role,
         positions: row.portfolio.positions.map(positionDto), valuation: calculateValuation(row.portfolio.positions) };
+    },
+    async getSummary(portfolioId: string) {
+      const row = await readPortfolio(portfolioId);
+      return { portfolioId: row.portfolio.id, ...calculateValuation(row.portfolio.positions) };
+    },
+    async listPositions(portfolioId: string) {
+      const row = await readPortfolio(portfolioId);
+      const valuation = calculateValuation(row.portfolio.positions);
+      return row.portfolio.positions.map((position, index) => ({
+        ...positionDto(position), quantity: valuation.positions[index].quantity, value: valuation.positions[index].value,
+      }));
     },
     async getPosition(portfolioId: string, positionId: string) {
       const userId = await actor();
@@ -129,7 +153,7 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
         if (balance.gte("1000000000000000000")) throw new ServiceError(400, "Resulting quantity is too large.");
         const movement = await tx.positionMovement.create({ data: { ...data, portfolioId, positionId, createdBy: userId, occurredAt: new Date(data.occurredAt) } });
         return movementDto(movement);
-      });
+      }, true); // A concurrent identical key is reread in a fresh transaction.
     },
     async updatePrice(portfolioId: string, positionId: string, input: unknown) {
       const userId = await actor();

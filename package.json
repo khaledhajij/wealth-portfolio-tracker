@@ -22,6 +22,7 @@
     "db:seed": "prisma generate && prisma db seed",
     "test": "prisma generate && node --conditions=react-server --import tsx --test tests/*.test.ts",
     "test:auth": "prisma generate && node --conditions=react-server --import tsx scripts/verify-auth.ts",
+    "test:api": "prisma generate && node --conditions=react-server --import tsx scripts/verify-api.ts",
     "auth:setup": "node --import tsx scripts/setup-auth.ts",
     "test:db": "prisma generate && node --conditions=react-server --import tsx scripts/verify-db.ts"
   },
