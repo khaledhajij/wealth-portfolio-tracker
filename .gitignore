@@ -1,0 +1,25 @@
+# Dependencies and generated output
+/node_modules/
+/generated/prisma/
+/.next/
+/out/
+/coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local configuration and credentials (only the empty template is shareable)
+.env*
+!.env.example
+*.pem
+*.key
+/.certs/
+/.vercel/
+
+# Local logs, scratch files and OS files
+*.log
+/tmp/
+/test-results/
+/playwright-report/
+/.playwright-mcp/
+.DS_Store
+Thumbs.db

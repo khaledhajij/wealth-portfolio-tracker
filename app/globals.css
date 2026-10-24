@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  background: #f6f7f4;
+  color: #182c26;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+::selection {
+  background: #c9e6d6;
+}
