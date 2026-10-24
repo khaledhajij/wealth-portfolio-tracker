@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum MembershipRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum AssetType {
+  STOCK
+  CRYPTO
+  CASH
+}
+
+// Domain identity only. No passwords, sessions or auth adapter assumptions.
+// Phase 3 must reconcile this model with the chosen authentication library.
+model User {
+  id          String             @id @default(cuid())
+  email       String             @unique
+  name        String
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  memberships Membership[]
+  movements   PositionMovement[]
+}
+
+model Portfolio {
+  id          String       @id @default(cuid())
+  name        String
+  currency    String       @default("USD") @db.VarChar(3)
+  createdAt   DateTime     @default(now()) @db.Timestamptz(3)
+  memberships Membership[]
+  positions   Position[]
+}
+
+model Membership {
+  id          String         @id @default(cuid())
+  userId      String
+  portfolioId String
+  role        MembershipRole
+  createdAt   DateTime       @default(now()) @db.Timestamptz(3)
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  portfolio   Portfolio      @relation(fields: [portfolioId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([userId, portfolioId])
+  @@index([portfolioId])
+}
+
+model Position {
+  id          String             @id @default(cuid())
+  portfolioId String
+  assetType   AssetType
+  label       String             @db.VarChar(160)
+  symbol      String             @db.VarChar(32)
+  unitPrice   Decimal            @db.Decimal(28, 8)
+  priceAsOf   DateTime           @db.Timestamptz(3)
+  createdAt   DateTime           @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime           @updatedAt @db.Timestamptz(3)
+  portfolio   Portfolio          @relation(fields: [portfolioId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  movements   PositionMovement[]
+
+  @@unique([id, portfolioId])
+  @@unique([portfolioId, assetType, symbol])
+}
+
+model PositionMovement {
+  id             String   @id @default(cuid())
+  portfolioId    String
+  positionId     String
+  signedQuantity Decimal  @db.Decimal(28, 10)
+  createdBy      String
+  occurredAt     DateTime @db.Timestamptz(3)
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+  requestKey     String   @unique @db.VarChar(128)
+  note           String?  @db.VarChar(500)
+  position       Position @relation(fields: [positionId, portfolioId], references: [id, portfolioId], onDelete: Restrict, onUpdate: Restrict)
+  creator        User     @relation(fields: [createdBy], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([portfolioId, positionId, occurredAt])
+  @@index([createdBy])
+}
