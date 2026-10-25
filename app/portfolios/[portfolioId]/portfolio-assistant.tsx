@@ -74,7 +74,7 @@ export function PortfolioAssistant({ portfolioId, portfolioName, availability }:
       }}
       onCancel={(event) => { event.preventDefault(); closeChat(); }} onClose={() => { setOpen(false); launcher.current?.focus(); }}>
     <ChatMessages portfolioName={portfolioName} pending={busy} onClose={closeChat}
-      context={<><p>Manual USD valuations · Prototype</p><p className="field-hint">{availability.message}</p></>}
+      context={<><p>Manual USD valuations</p><p className="field-hint">{availability.message}</p></>}
       messages={messages.map((message) => ({ id: message.id, sender: message.role === "user" ? "user" : "assistant", content: message.parts.map((part, index) => {
         if (part.type === "text") return <p className="assistant-text" key={index}>{part.text}</p>;
         if (part.type === "tool-getPortfolioSummary" || part.type === "tool-listPositions") {
@@ -96,7 +96,7 @@ export function PortfolioAssistant({ portfolioId, portfolioName, availability }:
         {busy ? <button key="stop" className="chat-secondary-button" type="button" onClick={(event) => { event.preventDefault(); setNotice("Stopping response…"); setInput(draft.current); void stop(); }}><Square size={13} aria-hidden="true" />Stop response</button>
           : <button key="ask" className="chat-send-button" type="submit" disabled={!availability.enabled || full || !input.trim()}><Send size={14} aria-hidden="true" />Ask assistant</button>}</div>
     </form>
-    <p className="field-hint chat-disclaimer">Use synthetic demo data. Each question stands alone. AI text may be inaccurate; server results and manual timestamps are the source figures.</p>
+    <p className="field-hint chat-disclaimer">Each question stands alone. AI text may be inaccurate; server results and manual timestamps are the source figures.</p>
     </ChatMessages>
     </dialog>
   </>;
@@ -104,7 +104,7 @@ export function PortfolioAssistant({ portfolioId, portfolioName, availability }:
 
 function SummaryResult({ result }: { result: SummaryOutput }) {
   return <div className="assistant-result"><h3>Server result · Portfolio summary</h3><p>Total: <strong>{usd(result.displayTotal)}</strong> USD · {result.positionCount} positions</p>
-    <p>Manual-price observations: {result.manualPriceWindow.oldest ? `${utcTime(result.manualPriceWindow.oldest)} to ${utcTime(result.manualPriceWindow.newest!)}` : "none (empty portfolio)"}.</p>
+    <p>Manual-price timestamps: {result.manualPriceWindow.oldest ? `${utcTime(result.manualPriceWindow.oldest)} to ${utcTime(result.manualPriceWindow.newest!)}` : "none (empty portfolio)"}.</p>
     <ul>{result.allocationByAssetType.map((row) => <li key={row.assetType}>{assetName[row.assetType]}: {usd(row.value)} USD · {row.allocationPercent}%</li>)}</ul>
   </div>;
 }

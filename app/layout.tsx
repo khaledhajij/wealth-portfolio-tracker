@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Wealth Portfolio Tracker | Prototype",
+  title: "Wealth Portfolio Tracker",
   description:
-    "A Wealth Portfolio Tracker assessment prototype with recorded holdings, timestamped manual USD prices and portfolio permissions.",
+    "Track your stock, crypto and cash holdings with timestamped manual USD prices and portfolio access controls.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

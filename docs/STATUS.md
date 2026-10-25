@@ -3,6 +3,26 @@
 As of 2026-10-25. Current phase: 6 - Google Gemini read-only streaming assistant now uses a popup. Safe presence checks show Google key/model configured locally; live-provider and fresh authenticated database/browser acceptance PENDING. Phase 5/5.5 real UI/database gates remain pending. Phase 4 acceptance remains complete from the supplied user run.
 Assessment deadline: end of 2026-10-25, Damascus time.
 
+## Product-copy cleanup
+
+- Removed assessment/prototype/demo presentation from dashboard/sidebar/list, sign-in/account, page title/description, auth app name and assistant context/identity. Replaced the symbol example with SYMBOL and renamed the presentation-only badge class to valuation-tag. Kept manual prices, read-only controls, disabled registration, AI-accuracy notes and operational failure states. README introduction now describes the product; factual test/development evidence remains.
+- Verification: source search found no assessment/prototype terms under app/components/lib; remaining demo mention is a non-rendered component comment about excluding canned data. npm run lint and npm run build (including TypeScript) exit 0. Existing component-only form checks pass at 1440px/390px with explicit synthetic render/controlled errors; not real database/session acceptance. No new tests needed for copy changes; unit/API/auth/live-provider suites not rerun in this follow-up.
+- This is presentation cleanup, not completion of outstanding production, database/browser or deployed-sign-in acceptance. No seeds/accounts/auth policy/security restrictions changed, no deployment or next phase.
+
+## Automatic recording timestamps follow-up
+
+- Implemented: position creation, manual-price updates and new quantity movements assign server time inside the secured write transaction. Forms have no editable dates or date payloads. Strict Zod contracts reject client priceAsOf/occurredAt overrides. Existing persisted field/DTO names and all historical records remain; no schema/migration/seed change.
+- Identical movement requestKey replay returns the original record and timestamp. Existing identity/portfolio checks, append-only rules, serializable transactions, locks, balance checks and retries remain. Dashboard hints explain automatic UTC recording time; assistant wording distinguishes recording time from a fresh market quote.
+- Verified locally: npm test 52 passed, 0 skipped; npm run typecheck, npm run lint and npm run build exit 0. Component-only Playwright checks at 1440px and 390px passed: no date controls, timestamp-free payloads, price/movement automatic-time hints, preserved fields/focused errors, same movement retry key, no page overflow. These used an explicitly synthetic render with controlled HTTP 400 responses, not a working database/session or successful mutation substitute.
+- Fresh PostgreSQL acceptance remains UNVERIFIED: npm run test:api stopped at read-only migration preflight, both sandboxed (PrismaClientKnownRequestError) and with network access (Error), details suppressed by the existing verifier. No new synthetic writes were reached. Rerun npm run build then npm run test:api from the connected terminal; updated checks assert server-generated times and rejected overrides while retaining replay/concurrency coverage. Full real-session test:ui/test:auth and live AI were not run for this follow-up. No deployment or remote settings action.
+
+## Deployed sign-in origin diagnosis
+
+- User supplied the deployed sign-in screenshot and subsequently reported HTTP 403. Reviewed current auth settings/client/handler/seed logic and official Better Auth/Vercel docs; Git was clean at this follow-up start. No auth/application change.
+- Safe deployed probes: GET /sign-in 200; anonymous GET /api/auth/get-session 200/null; empty sign-in JSON 400/VALIDATION_ERROR. One further sign-in request using the exact public origin, a random nonexistent .invalid email and dummy password returned **403/INVALID_ORIGIN**. No real credential, browser cookie or token used/printed; no valid session created. No seed/migration/reset action.
+- Confirmed the accessed production origin is not trusted by the running auth configuration. Source sets baseURL/trustedOrigins from BETTER_AUTH_URL; exact current Vercel env value is not accessible to the agent. Instructed setting Production BETTER_AUTH_URL=https://wealth-portfolio-tracker-nine.vercel.app and creating a new deployment. No broad origin allowlist, CSRF bypass or credential change suggested. Added AUTH troubleshooting notes.
+- Did not change Vercel settings/deploy or perform a successful credential/database/session test. User-side environment correction and successful retry remain pending. No local tests/build repeated for this documentation-only diagnosis. Updated AUTH/STATUS/AI_USAGE, preserving existing work.
+
 ## Vercel CA build-error follow-up
 
 - User supplied a Vercel build failure while Prisma loaded DATABASE_SSL_CA_FILE and asked how to supply the certificate safely. Reviewed instructions/PLAN/status/Git, Prisma/pg TLS configuration, ignore rules and Next config; preserved pending dashboard-theme work. Official Next 16 tracing, Vercel environment/Node runtime and Supabase SSL docs checked. No relevant memory hit/subagents or remote action.

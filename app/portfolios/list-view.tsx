@@ -7,7 +7,7 @@ type Portfolio = { id: string; name: string; currency: string; role: keyof typeo
 // Presentation receives only authorized DTOs from the Server Component.
 export function PortfolioListView({ rows }: { rows: Portfolio[] }) {
   return <PortfolioActions canWrite>
-    <div className="page-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h1>Your portfolios</h1><p className="page-description">A quiet place to keep your holdings in perspective.</p></div><div className="heading-actions"><span className="prototype-tag">Prototype · Manual prices</span><CreatePortfolioButton /></div></div>
+    <div className="page-heading"><div><p className="eyebrow">YOUR WORKSPACE</p><h1>Your portfolios</h1><p className="page-description">A quiet place to keep your holdings in perspective.</p></div><div className="heading-actions"><span className="valuation-tag">Manual prices</span><CreatePortfolioButton /></div></div>
     <section aria-labelledby="portfolio-list-heading"><h2 id="portfolio-list-heading" className="section-kicker">Choose a portfolio <span>{rows.length}</span></h2>
       {rows.length ? <div className="portfolio-grid">{rows.map((row, index) => <Link className="portfolio-card" href={`/portfolios/${encodeURIComponent(row.id)}`} key={row.id}>
         <div className="portfolio-card-top"><span className="portfolio-number">{String(index + 1).padStart(2, "0")}</span><span className="role-badge">{roleName[row.role]}</span></div>
