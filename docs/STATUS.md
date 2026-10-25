@@ -5,6 +5,8 @@ Assessment deadline: end of 2026-10-25, Damascus time.
 
 ## Phase 8: current feature classification
 
+README presentation follow-up: added the existing reported Vercel application link and a concise current-feature overview (auth, portfolio creation, scoped roles, valuation/history/forms and read-only Gemini). Deployment/database/Gemini operation remain attributed to the user's confirmation. No new runtime check or deployment performed for this documentation-only change.
+
 Implemented means code/artifact exists with the stated local evidence; it does not mean all live acceptance gates passed. Partial means the integration or acceptance work is incomplete even though substantial code exists. Planned means no delivered feature/finished external action. The phase 7 check/command/result/limitation table below remains the detailed evidence record; older entries are historical, not current state overrides.
 
 | Component                                                     | Status                                     | Evidence and remaining boundary                                                                                                                                                                           |

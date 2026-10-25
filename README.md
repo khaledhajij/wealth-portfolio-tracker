@@ -4,6 +4,22 @@ A single Next.js application for stock, crypto and cash holdings in USD, using m
 
 The dashboard and Google Gemini read-only assistant are implemented. **User confirmation on 2026-10-25: the database and live Gemini work, and deployment to Vercel is complete.** Separately, phase 7 agent checks passed 54 tests, typecheck, lint, Prisma validation and build; its database integration commands failed at preflight and it did not run a live provider request. Those historical agent results do not mean the user’s working deployment is blocked. Phase 8 updates documentation only. See [STATUS](docs/STATUS.md) for exact results and limitations.
 
+## Application and features
+
+[Open Wealth Portfolio Tracker](https://wealth-portfolio-tracker-nine.vercel.app)
+
+Deployment to Vercel, database operation and live Gemini operation are user-confirmed. The application uses synthetic assessment accounts and holdings; public registration is disabled. This documentation update does not constitute a new deployment or live verification run.
+
+- Sign in with a seeded account using Better Auth sessions.
+- Create an empty USD portfolio and become its Owner; list only portfolios where you have membership.
+- View totals, allocation by stock/crypto/cash, position quantities/values and movement history.
+- Owners and Editors can add positions, record quantity movements and update manual prices. Viewers have read-only access within their portfolios.
+- Price and movement recording times are assigned by the server. Cash unit price is fixed at 1, and stock/crypto quantity changes do not automatically spend cash.
+- Use the portfolio-scoped Gemini popup for read-only summaries and positions, with streaming, source figures and Stop controls. Missing AI configuration disables sending without disabling the portfolio features.
+- Use responsive forms with pending, empty, success and error states, backed by server-side authorization and Decimal calculations.
+
+Detailed design and deferred features: [PLAN](PLAN.md). Verification evidence and remaining limitations: [STATUS](docs/STATUS.md).
+
 ## Prerequisites and stack
 
 - Node.js 24.18.0 and npm 11.16.0, observed in phase 7. The supported ranges are Node >=24.18.0 <25 and npm >=11.16.0 <12; .nvmrc and packageManager record the chosen versions.

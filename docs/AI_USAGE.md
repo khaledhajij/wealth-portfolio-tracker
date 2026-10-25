@@ -1,5 +1,11 @@
 # AI usage log
 
+## 2026-10-25 - README current features and application link
+
+- User asked whether README should reflect increased features and completed deployment. Checked current README/PLAN/status, Git and relevant UI/auth/contracts/assistant settings; Git initially clean. Memory search found no relevant record.
+- Added the previously reported Vercel URL and a concise feature overview without changing implementation or claiming a new live test. Preserved setup details, synthetic-account scope, user-confirmed database/Gemini/deployment status and historical verification limitations. Updated STATUS and this log only alongside README.
+- Documentation checks performed; no runtime suite, provider call, database action, commit/push/deployment or external message. No new phase or feature.
+
 ## 2026-10-25 - User confirms operational database, Gemini and Vercel
 
 - User explicitly stated that the database and Gemini already work and deployment to Vercel is complete. Accepted this as user-confirmed operational evidence; no additional commands, screenshots, model IDs or detailed test results were supplied in that statement.
