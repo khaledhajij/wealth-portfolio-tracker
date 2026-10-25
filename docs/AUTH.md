@@ -24,6 +24,20 @@ Keep DATABASE_URL and optional official CA path in ignored `.env.local`. Run `np
 
 `BETTER_AUTH_URL` must be the exact origin used in the browser. HTTP is allowed only for loopback (`localhost`, `127.0.0.1`, IPv6 loopback); every remote origin requires HTTPS. Cookies are HttpOnly, SameSite=Lax, host-scoped, path=/, Secure on HTTPS. This explicit loopback exception also supports `npm start` locally. There are no cross-subdomain cookies or wildcard trusted origins.
 
+### Vercel 403 INVALID_ORIGIN
+
+The user's deployed sign-in endpoint returned 403/INVALID_ORIGIN on 2026-10-25 when probed with its actual browser origin and a synthetic nonexistent account/dummy password. This confirms that deployment does not currently trust the accessed domain; it does not verify valid credentials or database-backed sessions. The project explicitly sets both Better Auth baseURL and trustedOrigins from the server's BETTER_AUTH_URL.
+
+In Vercel Project Settings > Environment Variables, set the **Production** value to the exact origin used by the user:
+
+```dotenv
+BETTER_AUTH_URL=https://wealth-portfolio-tracker-nine.vercel.app
+```
+
+No /sign-in or /api/auth suffix and no localhost value for this deployment. Create a new Production deployment after saving, and access that same domain when retrying. Preview deployments need their own explicitly intended origin/configuration; do not solve an origin mismatch by trusting every vercel.app site or disabling CSRF/origin/cookie protections. Keep BETTER_AUTH_SECRET private and unchanged for this fix; changing the demo password env does not update existing seeded password hashes. No password reset, reseed, auth bypass or authentication-code change is required to resolve the observed origin rejection. A subsequent valid login remains to be checked after the environment fix.
+
+References: [Better Auth origin protection](https://better-auth.com/docs/reference/security), [Vercel environment changes require new deployments](https://vercel.com/docs/environment-variables).
+
 `202610240003_auth` is additive. It extends User, creates the library's Session/Account/Verification tables and adds nullable Position.priceUpdatedBy. Existing user IDs, memberships, positions, movements and the two earlier SQL files are preserved. Existing prices have no invented actor; new service writes set the session actor. No Supabase auth/storage schemas or dashboard settings are changed. Only Prisma migrations are used, not Better Auth's built-in database migrator, db push or reset.
 
 From a terminal with working database access, run individually:
@@ -57,7 +71,9 @@ Seed retains the four `.invalid` identities and their existing memberships. `Acc
 
 All private API responses set `Cache-Control: private, no-store` and `Vary: Cookie`; private pages are dynamic. No React/Next shared result cache is used. Reusing a Prisma connection pool is not caching portfolio data. Origin checks and an 8 KiB actual-body limit protect JSON financial mutation routes in addition to the library's auth-origin protections.
 
-Rate-limit correction from installed-source review in phase 4: a memory rateLimit option is configured, but advanced.ipAddress.disableIpTracking=true makes getIP return null, and Better Auth 1.7.12's resolveRateLimitConfig then skips its IP-based limiter (dist/api/rate-limiter/index.mjs). Do not claim effective login brute-force throttling in the current configuration. Phase 4 does not change auth behavior; resolve this before remote exposure, alongside distributed/runtime privilege hardening. No IP header spoofing or settings bypass was added for tests.
+Historical phase 4 finding: disableIpTracking=true caused Better Auth 1.7.12 to skip its configured limiter. **Fixed in phase 7:** tracking is enabled for rate-limit resolution, while a session-create database hook sets ipAddress=null before persistence. No raw address is written to sessions by this path. Only x-vercel-forwarded-for is trusted when the server's VERCEL environment flag is 1; elsewhere forwarded headers are ignored and the library falls back to a shared per-path bucket (loopback in development/test). Sign-in uses 10 attempts per 60 seconds; other configured routes retain 30 per 60 seconds, subject to library-specific rules. Handler regression tests prove 429 after the limit and rejection of spoofed forwarding-header bucket resets; a persistence double verifies address removal. See [Better Auth options/hooks](https://better-auth.com/docs/reference/options) and [Vercel request headers](https://vercel.com/docs/headers/request-headers), checked alongside the installed source.
+
+The limiter remains memory-backed and process-local: cold starts/multiple instances do not share counters. The off-Vercel production fallback shares a bucket among users. Actual deployed proxy behavior, distributed protections and runtime privilege hardening remain unverified; this narrow fix does not establish production brute-force protection across a deployment. Direct server auth.api calls are outside HTTP rate limiting. The existing rememberMe expiry discrepancy above is unchanged.
 
 ## Services and endpoints
 
