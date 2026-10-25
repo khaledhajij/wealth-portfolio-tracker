@@ -3,7 +3,10 @@ import { Prisma } from "../../generated/prisma/client";
 
 // Isolated constructor: do not mutate Prisma's global Decimal configuration.
 // 80 significant digits exceeds a 28x28-digit product plus practical sum growth.
-const Decimal = Prisma.Decimal.clone({ precision: 80, rounding: Prisma.Decimal.ROUND_HALF_UP });
+const Decimal = Prisma.Decimal.clone({
+  precision: 80,
+  rounding: Prisma.Decimal.ROUND_HALF_UP,
+});
 type DecimalInput = string | Prisma.Decimal;
 
 export type ValuationPosition = {
@@ -28,7 +31,10 @@ export function calculateValuation(positions: readonly ValuationPosition[]) {
   let total = new Decimal("0");
   const values = positions.map((position) => {
     const price = decimal(position.unitPrice);
-    if (price.isNegative() || (position.assetType === "CASH" && !price.equals("1"))) {
+    if (
+      price.isNegative() ||
+      (position.assetType === "CASH" && !price.equals("1"))
+    ) {
       throw new Error("Invalid manual unit price.");
     }
     let quantity = new Decimal("0");
@@ -37,7 +43,8 @@ export function calculateValuation(positions: readonly ValuationPosition[]) {
       if (delta.isZero()) throw new Error("Movement quantity must be nonzero.");
       quantity = quantity.plus(delta);
     }
-    if (quantity.isNegative()) throw new Error("Negative position balance is not supported.");
+    if (quantity.isNegative())
+      throw new Error("Negative position balance is not supported.");
     if (position.assetType === "CASH" && quantity.decimalPlaces() > 2) {
       throw new Error("Cash quantity must have at most two decimal places.");
     }
@@ -51,18 +58,29 @@ export function calculateValuation(positions: readonly ValuationPosition[]) {
     currency: "USD" as const,
     totalValue: total.toFixed(),
     displayTotal: total.toFixed(2),
-    allocationByAssetType: (["STOCK", "CRYPTO", "CASH"] as const).map((assetType) => {
-      const value = values.filter((entry) => entry.position.assetType === assetType)
-        .reduce((sum, entry) => sum.plus(entry.value), new Decimal("0"));
-      return { assetType, value: value.toFixed(), allocationPercent: total.isZero() ? "0" : value.dividedBy(total).times("100").toFixed(4) };
-    }),
+    allocationByAssetType: (["STOCK", "CRYPTO", "CASH"] as const).map(
+      (assetType) => {
+        const value = values
+          .filter((entry) => entry.position.assetType === assetType)
+          .reduce((sum, entry) => sum.plus(entry.value), new Decimal("0"));
+        return {
+          assetType,
+          value: value.toFixed(),
+          allocationPercent: total.isZero()
+            ? "0"
+            : value.dividedBy(total).times("100").toFixed(4),
+        };
+      },
+    ),
     positions: values.map(({ position, price, quantity, value }) => ({
       id: position.id,
       quantity: quantity.toFixed(),
       unitPrice: price.toFixed(),
       priceAsOf: position.priceAsOf.toISOString(),
       value: value.toFixed(),
-      allocationPercent: total.isZero() ? "0" : value.dividedBy(total).times("100").toFixed(4),
+      allocationPercent: total.isZero()
+        ? "0"
+        : value.dividedBy(total).times("100").toFixed(4),
     })),
   };
 }

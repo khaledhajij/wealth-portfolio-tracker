@@ -4,4 +4,6 @@ import { requireUser } from "./session";
 import { createPortfolioService } from "./portfolio-service";
 
 // The only production service composition. No caller-supplied user/role argument.
-export function portfolios() { return createPortfolioService(getDatabase(), requireUser); }
+export function portfolios() {
+  return createPortfolioService(getDatabase(), requireUser);
+}

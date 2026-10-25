@@ -77,15 +77,15 @@ The limiter remains memory-backed and process-local: cold starts/multiple instan
 
 ## Services and endpoints
 
-| Endpoint | Service behavior |
-| --- | --- |
-| GET `/api/portfolios` | List only current user's memberships |
-| GET `/api/portfolios/:portfolioId` | Authorized positions, movement-derived quantities and Decimal valuation |
-| POST `/api/portfolios/:portfolioId/positions` | Owner/Editor adds a zero-balance position; no implicit movement or cash settlement |
-| GET `/api/portfolios/:portfolioId/positions/:positionId` | Read only a position belonging to this portfolio |
-| PATCH same position path | Owner/Editor updates manual price/time and priceUpdatedBy |
-| GET position path + `/movements` | Authorized latest 100 history rows (bounded prototype read, no pagination yet) |
-| POST position path + `/movements` | Owner/Editor appends a signed movement with session-derived createdBy |
+| Endpoint                                                 | Service behavior                                                                   |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| GET `/api/portfolios`                                    | List only current user's memberships                                               |
+| GET `/api/portfolios/:portfolioId`                       | Authorized positions, movement-derived quantities and Decimal valuation            |
+| POST `/api/portfolios/:portfolioId/positions`            | Owner/Editor adds a zero-balance position; no implicit movement or cash settlement |
+| GET `/api/portfolios/:portfolioId/positions/:positionId` | Read only a position belonging to this portfolio                                   |
+| PATCH same position path                                 | Owner/Editor updates manual price/time and priceUpdatedBy                          |
+| GET position path + `/movements`                         | Authorized latest 100 history rows (bounded prototype read, no pagination yet)     |
+| POST position path + `/movements`                        | Owner/Editor appends a signed movement with session-derived createdBy              |
 
 Phase 4 also exposes GET portfolio `/summary`, GET `/positions` and PATCH position `/valuation`, retaining the previous PATCH alias. Position creation returns 201; portfolio errors add stable codes. See [API.md](API.md) for current contracts, transaction/retry details and real HTTP concurrency verification. No UI expansion or new auth integration was added.
 

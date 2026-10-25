@@ -1,38 +1,77 @@
 import nextEnv from "@next/env";
 import { Prisma, type PrismaClient } from "../generated/prisma/client";
 import { createDatabaseClient } from "../lib/server/db";
-import { seedUsers, seedPortfolios, seedMemberships, seedPositions, seedMovements } from "./seed-data";
+import {
+  seedUsers,
+  seedPortfolios,
+  seedMemberships,
+  seedPositions,
+  seedMovements,
+} from "./seed-data";
 import { demoPassword, seedDemoCredentials } from "./seed-auth";
 
 export async function seedDatabase(db: PrismaClient) {
   // Insert missing fixtures only. Never reset user changes or UPDATE immutable history.
-  await db.$transaction(async (tx) => {
-    for (const user of seedUsers) {
-      await tx.user.upsert({ where: { id: user.id }, create: user, update: {} });
-    }
-    for (const portfolio of seedPortfolios) {
-      await tx.portfolio.upsert({ where: { id: portfolio.id }, create: portfolio, update: {} });
-    }
-    for (const membership of seedMemberships) {
-      await tx.membership.upsert({ where: { userId_portfolioId: { userId: membership.userId, portfolioId: membership.portfolioId } }, create: membership, update: {} });
-    }
-    for (const position of seedPositions) {
-      await tx.position.upsert({ where: { id: position.id }, create: position, update: {} });
-    }
-    for (const movement of seedMovements) {
-      const existing = await tx.positionMovement.findUnique({ where: { requestKey: movement.requestKey } });
-      if (!existing) {
-        await tx.positionMovement.create({ data: movement });
-      } else if (
-        existing.id !== movement.id || existing.positionId !== movement.positionId ||
-        existing.portfolioId !== movement.portfolioId || existing.createdBy !== movement.createdBy ||
-        !existing.signedQuantity.equals(new Prisma.Decimal(movement.signedQuantity)) ||
-        existing.occurredAt.getTime() !== movement.occurredAt.getTime() || existing.note !== movement.note
-      ) {
-        throw new Error("Seed requestKey conflicts with different movement content; no data was changed.");
+  await db.$transaction(
+    async (tx) => {
+      for (const user of seedUsers) {
+        await tx.user.upsert({
+          where: { id: user.id },
+          create: user,
+          update: {},
+        });
       }
-    }
-  }, { timeout: 30000 });
+      for (const portfolio of seedPortfolios) {
+        await tx.portfolio.upsert({
+          where: { id: portfolio.id },
+          create: portfolio,
+          update: {},
+        });
+      }
+      for (const membership of seedMemberships) {
+        await tx.membership.upsert({
+          where: {
+            userId_portfolioId: {
+              userId: membership.userId,
+              portfolioId: membership.portfolioId,
+            },
+          },
+          create: membership,
+          update: {},
+        });
+      }
+      for (const position of seedPositions) {
+        await tx.position.upsert({
+          where: { id: position.id },
+          create: position,
+          update: {},
+        });
+      }
+      for (const movement of seedMovements) {
+        const existing = await tx.positionMovement.findUnique({
+          where: { requestKey: movement.requestKey },
+        });
+        if (!existing) {
+          await tx.positionMovement.create({ data: movement });
+        } else if (
+          existing.id !== movement.id ||
+          existing.positionId !== movement.positionId ||
+          existing.portfolioId !== movement.portfolioId ||
+          existing.createdBy !== movement.createdBy ||
+          !existing.signedQuantity.equals(
+            new Prisma.Decimal(movement.signedQuantity),
+          ) ||
+          existing.occurredAt.getTime() !== movement.occurredAt.getTime() ||
+          existing.note !== movement.note
+        ) {
+          throw new Error(
+            "Seed requestKey conflicts with different movement content; no data was changed.",
+          );
+        }
+      }
+    },
+    { timeout: 30000 },
+  );
 }
 
 // Keep importing seedDatabase in verification scripts free of side effects.
@@ -44,9 +83,13 @@ if (process.argv[1]?.replaceAll("\\", "/").endsWith("/prisma/seed.ts")) {
     db = createDatabaseClient();
     await seedDatabase(db);
     await seedDemoCredentials(db, password);
-    console.log("Synthetic domain and credential seed complete; existing rows and password hashes preserved.");
+    console.log(
+      "Synthetic domain and credential seed complete; existing rows and password hashes preserved.",
+    );
   } catch {
-    console.error("Seed failed. Check DATABASE_URL, DEMO_ACCOUNT_PASSWORD, migration status, and fixture conflicts. Secrets suppressed.");
+    console.error(
+      "Seed failed. Check DATABASE_URL, DEMO_ACCOUNT_PASSWORD, migration status, and fixture conflicts. Secrets suppressed.",
+    );
     process.exitCode = 1;
   } finally {
     await db?.$disconnect();

@@ -9,6 +9,15 @@ export function assistantSettings(env: NodeJS.ProcessEnv = process.env) {
 }
 
 export function assistantAvailability() {
-  return assistantSettings() ? { enabled: true, message: "AI configuration detected; provider availability is checked when you send a question." }
-    : { enabled: false, message: "Assistant unavailable: server AI configuration is missing. Set GOOGLE_GENERATIVE_AI_API_KEY and AI_MODEL privately, then restart the application." };
+  return assistantSettings()
+    ? {
+        enabled: true,
+        message:
+          "AI configuration detected; provider availability is checked when you send a question.",
+      }
+    : {
+        enabled: false,
+        message:
+          "Assistant unavailable: server AI configuration is missing. Set GOOGLE_GENERATIVE_AI_API_KEY and AI_MODEL privately, then restart the application.",
+      };
 }

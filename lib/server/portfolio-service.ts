@@ -1,7 +1,13 @@
 import "server-only";
 import { Prisma, type PrismaClient } from "../../generated/prisma/client";
 import { calculateValuation } from "./valuation";
-import { movementInput, portfolioInput, positionInput, priceInput, resourceId } from "./contracts";
+import {
+  movementInput,
+  portfolioInput,
+  positionInput,
+  priceInput,
+  resourceId,
+} from "./contracts";
 import { ServiceError } from "./service-error";
 
 const Decimal = Prisma.Decimal.clone({ precision: 80 });
@@ -11,53 +17,113 @@ const missing = () => new ServiceError(404, "Resource not found.");
 
 function serializationConflict(error: Prisma.PrismaClientKnownRequestError) {
   // Raw row-lock queries can expose PostgreSQL SQLSTATE through P2010.
-  return error.code === "P2034" || (error.code === "P2010" && ["40001", "40P01"].includes(String(error.meta?.code)));
+  return (
+    error.code === "P2034" ||
+    (error.code === "P2010" &&
+      ["40001", "40P01"].includes(String(error.meta?.code)))
+  );
 }
 
-async function member(db: Pick<Tx, "membership">, userId: string, portfolioId: string, write = false) {
-  const row = await db.membership.findUnique({ where: { userId_portfolioId: { userId, portfolioId } } });
-  if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role)) throw missing();
-  if (write && row.role !== "OWNER" && row.role !== "EDITOR") throw new ServiceError(403, "Write access required.");
+async function member(
+  db: Pick<Tx, "membership">,
+  userId: string,
+  portfolioId: string,
+  write = false,
+) {
+  const row = await db.membership.findUnique({
+    where: { userId_portfolioId: { userId, portfolioId } },
+  });
+  if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role))
+    throw missing();
+  if (write && row.role !== "OWNER" && row.role !== "EDITOR")
+    throw new ServiceError(403, "Write access required.");
   return row;
 }
 
-async function position(db: Pick<Tx, "position">, portfolioId: string, positionId: string) {
-  const row = await db.position.findFirst({ where: { id: positionId, portfolioId } });
+async function position(
+  db: Pick<Tx, "position">,
+  portfolioId: string,
+  positionId: string,
+) {
+  const row = await db.position.findFirst({
+    where: { id: positionId, portfolioId },
+  });
   if (!row) throw missing();
   return row;
 }
 
 function positionDto(row: Awaited<ReturnType<typeof position>>) {
-  return { id: row.id, portfolioId: row.portfolioId, assetType: row.assetType, label: row.label, symbol: row.symbol,
-    unitPrice: row.unitPrice.toFixed(), priceAsOf: row.priceAsOf.toISOString() };
+  return {
+    id: row.id,
+    portfolioId: row.portfolioId,
+    assetType: row.assetType,
+    label: row.label,
+    symbol: row.symbol,
+    unitPrice: row.unitPrice.toFixed(),
+    priceAsOf: row.priceAsOf.toISOString(),
+  };
 }
 
-function movementDto(row: { id: string; signedQuantity: Prisma.Decimal; occurredAt: Date; note: string | null }) {
-  return { id: row.id, signedQuantity: row.signedQuantity.toFixed(), occurredAt: row.occurredAt.toISOString(), note: row.note };
+function movementDto(row: {
+  id: string;
+  signedQuantity: Prisma.Decimal;
+  occurredAt: Date;
+  note: string | null;
+}) {
+  return {
+    id: row.id,
+    signedQuantity: row.signedQuantity.toFixed(),
+    occurredAt: row.occurredAt.toISOString(),
+    note: row.note,
+  };
 }
 
 // Factory is a server-internal test seam. Production binds requireUser, never request identity.
-export function createPortfolioService(db: PrismaClient, currentUser: UserReader) {
+export function createPortfolioService(
+  db: PrismaClient,
+  currentUser: UserReader,
+) {
   async function actor() {
     const user = await currentUser();
     if (!user?.id) throw new ServiceError(401, "Sign in required.");
     return user.id;
   }
-  async function write<T>(userId: string, portfolioId: string, operation: (tx: Tx) => Promise<T>, retryUnique = false): Promise<T> {
+  async function write<T>(
+    userId: string,
+    portfolioId: string,
+    operation: (tx: Tx) => Promise<T>,
+    retryUnique = false,
+  ): Promise<T> {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await db.$transaction(async (tx) => {
-          // Lock existing membership so a future revocation cannot race this write.
-          await tx.$queryRaw`SELECT id FROM "Membership" WHERE "userId" = ${userId} AND "portfolioId" = ${portfolioId} FOR SHARE`;
-          await member(tx, userId, portfolioId, true);
-          return operation(tx);
-        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, timeout: 30000 });
+        return await db.$transaction(
+          async (tx) => {
+            // Lock existing membership so a future revocation cannot race this write.
+            await tx.$queryRaw`SELECT id FROM "Membership" WHERE "userId" = ${userId} AND "portfolioId" = ${portfolioId} FOR SHARE`;
+            await member(tx, userId, portfolioId, true);
+            return operation(tx);
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+            timeout: 30000,
+          },
+        );
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-          const retry = serializationConflict(error) || (retryUnique && error.code === "P2002");
+          const retry =
+            serializationConflict(error) ||
+            (retryUnique && error.code === "P2002");
           if (retry && attempt < 2) continue;
-          if (error.code === "P2002") throw new ServiceError(409, "A position or request key already exists.");
-          if (serializationConflict(error)) throw new ServiceError(409, "Concurrent change; retry the operation.");
+          if (error.code === "P2002")
+            throw new ServiceError(
+              409,
+              "A position or request key already exists.",
+            );
+          if (serializationConflict(error))
+            throw new ServiceError(
+              409,
+              "Concurrent change; retry the operation.",
+            );
         }
         throw error;
       }
@@ -74,11 +140,24 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
   async function readPortfolio(portfolioId: string) {
     const userId = await actor();
     resourceId.parse(portfolioId);
-    const row = await db.membership.findUnique({ where: { userId_portfolioId: { userId, portfolioId } },
-      select: { role: true, portfolio: { select: { id: true, name: true, positions: {
-        orderBy: { id: "asc" }, include: { movements: { select: { signedQuantity: true } } },
-      } } } } });
-    if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role)) throw missing();
+    const row = await db.membership.findUnique({
+      where: { userId_portfolioId: { userId, portfolioId } },
+      select: {
+        role: true,
+        portfolio: {
+          select: {
+            id: true,
+            name: true,
+            positions: {
+              orderBy: { id: "asc" },
+              include: { movements: { select: { signedQuantity: true } } },
+            },
+          },
+        },
+      },
+    });
+    if (!row || !["OWNER", "EDITOR", "VIEWER"].includes(row.role))
+      throw missing();
     return row;
   }
   return {
@@ -93,108 +172,206 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
       // own a new portfolio, including a Viewer in a different portfolio.
       const userId = await actor();
       const data = portfolioInput.parse(input);
-      return db.$transaction(async (tx) => {
-        const portfolio = await tx.portfolio.create({ data: { name: data.name, currency: "USD" },
-          select: { id: true, name: true, currency: true } });
-        await tx.membership.create({ data: { userId, portfolioId: portfolio.id, role: "OWNER" } });
-        return { ...portfolio, role: "OWNER" as const };
-      }, { timeout: 30000 });
+      return db.$transaction(
+        async (tx) => {
+          const portfolio = await tx.portfolio.create({
+            data: { name: data.name, currency: "USD" },
+            select: { id: true, name: true, currency: true },
+          });
+          await tx.membership.create({
+            data: { userId, portfolioId: portfolio.id, role: "OWNER" },
+          });
+          return { ...portfolio, role: "OWNER" as const };
+        },
+        { timeout: 30000 },
+      );
     },
     async listPortfolios() {
       const userId = await actor();
-      const rows = await db.membership.findMany({ where: { userId, role: { in: ["OWNER", "EDITOR", "VIEWER"] } },
-        select: { role: true, portfolio: { select: { id: true, name: true, currency: true } } }, orderBy: { portfolioId: "asc" } });
+      const rows = await db.membership.findMany({
+        where: { userId, role: { in: ["OWNER", "EDITOR", "VIEWER"] } },
+        select: {
+          role: true,
+          portfolio: { select: { id: true, name: true, currency: true } },
+        },
+        orderBy: { portfolioId: "asc" },
+      });
       return rows.map((row) => ({ ...row.portfolio, role: row.role }));
     },
     async getPortfolio(portfolioId: string) {
       const row = await readPortfolio(portfolioId);
-      return { id: row.portfolio.id, name: row.portfolio.name, role: row.role,
-        positions: row.portfolio.positions.map(positionDto), valuation: calculateValuation(row.portfolio.positions) };
+      return {
+        id: row.portfolio.id,
+        name: row.portfolio.name,
+        role: row.role,
+        positions: row.portfolio.positions.map(positionDto),
+        valuation: calculateValuation(row.portfolio.positions),
+      };
     },
     async getSummary(portfolioId: string) {
       const row = await readPortfolio(portfolioId);
-      return { portfolioId: row.portfolio.id, ...calculateValuation(row.portfolio.positions) };
+      return {
+        portfolioId: row.portfolio.id,
+        ...calculateValuation(row.portfolio.positions),
+      };
     },
     async listPositions(portfolioId: string) {
       const row = await readPortfolio(portfolioId);
       const valuation = calculateValuation(row.portfolio.positions);
       return row.portfolio.positions.map((position, index) => ({
-        ...positionDto(position), quantity: valuation.positions[index].quantity, value: valuation.positions[index].value,
+        ...positionDto(position),
+        quantity: valuation.positions[index].quantity,
+        value: valuation.positions[index].value,
       }));
     },
     async getPosition(portfolioId: string, positionId: string) {
       const userId = await actor();
-      resourceId.parse(portfolioId); resourceId.parse(positionId);
+      resourceId.parse(portfolioId);
+      resourceId.parse(positionId);
       await member(db, userId, portfolioId);
       return positionDto(await position(db, portfolioId, positionId));
     },
     async listMovements(portfolioId: string, positionId: string) {
       const userId = await actor();
-      resourceId.parse(portfolioId); resourceId.parse(positionId);
+      resourceId.parse(portfolioId);
+      resourceId.parse(positionId);
       await member(db, userId, portfolioId);
       await position(db, portfolioId, positionId);
-      const rows = await db.positionMovement.findMany({ where: { portfolioId, positionId },
-        orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 100 });
+      const rows = await db.positionMovement.findMany({
+        where: { portfolioId, positionId },
+        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+        take: 100,
+      });
       return rows.map(movementDto);
     },
     async listPortfolioMovements(portfolioId: string) {
       const userId = await actor();
       resourceId.parse(portfolioId);
       await member(db, userId, portfolioId);
-      const rows = await db.positionMovement.findMany({ where: { portfolioId }, take: 100,
+      const rows = await db.positionMovement.findMany({
+        where: { portfolioId },
+        take: 100,
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
-        select: { id: true, positionId: true, signedQuantity: true, occurredAt: true, note: true,
-          position: { select: { label: true, symbol: true, assetType: true } } },
+        select: {
+          id: true,
+          positionId: true,
+          signedQuantity: true,
+          occurredAt: true,
+          note: true,
+          position: { select: { label: true, symbol: true, assetType: true } },
+        },
       });
-      return rows.map((row) => ({ ...movementDto(row), positionId: row.positionId, ...row.position }));
+      return rows.map((row) => ({
+        ...movementDto(row),
+        positionId: row.positionId,
+        ...row.position,
+      }));
     },
     async addPosition(portfolioId: string, input: unknown) {
       const userId = await actor();
       resourceId.parse(portfolioId);
       return write(userId, portfolioId, async (tx) => {
         const data = positionInput.parse(input);
-        if (data.assetType === "CASH" && (data.symbol !== "USD" || !new Decimal(data.unitPrice).eq(1))) {
-          throw new ServiceError(400, "Cash requires symbol USD and unit price 1.");
+        if (
+          data.assetType === "CASH" &&
+          (data.symbol !== "USD" || !new Decimal(data.unitPrice).eq(1))
+        ) {
+          throw new ServiceError(
+            400,
+            "Cash requires symbol USD and unit price 1.",
+          );
         }
-        const row = await tx.position.create({ data: { ...data, portfolioId, priceUpdatedBy: userId, priceAsOf: new Date() } });
+        const row = await tx.position.create({
+          data: {
+            ...data,
+            portfolioId,
+            priceUpdatedBy: userId,
+            priceAsOf: new Date(),
+          },
+        });
         return positionDto(row);
       });
     },
-    async recordMovement(portfolioId: string, positionId: string, input: unknown) {
+    async recordMovement(
+      portfolioId: string,
+      positionId: string,
+      input: unknown,
+    ) {
       const userId = await actor();
-      resourceId.parse(portfolioId); resourceId.parse(positionId);
-      return write(userId, portfolioId, async (tx) => {
-        const row = await lockPosition(tx, portfolioId, positionId);
-        const data = movementInput.parse(input);
-        const delta = new Decimal(data.signedQuantity);
-        if (row.assetType === "CASH" && delta.decimalPlaces() > 2) throw new ServiceError(400, "Cash accepts cents only.");
-        const existing = await tx.positionMovement.findUnique({ where: { requestKey: data.requestKey } });
-        if (existing) {
-          if (existing.portfolioId !== portfolioId || existing.positionId !== positionId || existing.createdBy !== userId ||
+      resourceId.parse(portfolioId);
+      resourceId.parse(positionId);
+      return write(
+        userId,
+        portfolioId,
+        async (tx) => {
+          const row = await lockPosition(tx, portfolioId, positionId);
+          const data = movementInput.parse(input);
+          const delta = new Decimal(data.signedQuantity);
+          if (row.assetType === "CASH" && delta.decimalPlaces() > 2)
+            throw new ServiceError(400, "Cash accepts cents only.");
+          const existing = await tx.positionMovement.findUnique({
+            where: { requestKey: data.requestKey },
+          });
+          if (existing) {
+            if (
+              existing.portfolioId !== portfolioId ||
+              existing.positionId !== positionId ||
+              existing.createdBy !== userId ||
               !existing.signedQuantity.eq(data.signedQuantity) ||
-              existing.note !== (data.note ?? null)) throw new ServiceError(409, "Request key conflicts with another operation.");
-          return movementDto(existing);
-        }
-        const total = await tx.positionMovement.aggregate({ where: { portfolioId, positionId }, _sum: { signedQuantity: true } });
-        const balance = new Decimal(total._sum.signedQuantity?.toString() ?? "0").plus(delta);
-        if (balance.isNegative()) throw new ServiceError(400, "Resulting quantity cannot be negative.");
-        // Bound aggregates as well as individual numeric columns.
-        if (balance.gte("1000000000000000000")) throw new ServiceError(400, "Resulting quantity is too large.");
-        // Only a new insertion receives a server recording time. Replays above
-        // keep their original append-only record, including its timestamp.
-        const movement = await tx.positionMovement.create({ data: { ...data, portfolioId, positionId, createdBy: userId, occurredAt: new Date() } });
-        return movementDto(movement);
-      }, true); // A concurrent identical key is reread in a fresh transaction.
+              existing.note !== (data.note ?? null)
+            )
+              throw new ServiceError(
+                409,
+                "Request key conflicts with another operation.",
+              );
+            return movementDto(existing);
+          }
+          const total = await tx.positionMovement.aggregate({
+            where: { portfolioId, positionId },
+            _sum: { signedQuantity: true },
+          });
+          const balance = new Decimal(
+            total._sum.signedQuantity?.toString() ?? "0",
+          ).plus(delta);
+          if (balance.isNegative())
+            throw new ServiceError(
+              400,
+              "Resulting quantity cannot be negative.",
+            );
+          // Bound aggregates as well as individual numeric columns.
+          if (balance.gte("1000000000000000000"))
+            throw new ServiceError(400, "Resulting quantity is too large.");
+          // Only a new insertion receives a server recording time. Replays above
+          // keep their original append-only record, including its timestamp.
+          const movement = await tx.positionMovement.create({
+            data: {
+              ...data,
+              portfolioId,
+              positionId,
+              createdBy: userId,
+              occurredAt: new Date(),
+            },
+          });
+          return movementDto(movement);
+        },
+        true,
+      ); // A concurrent identical key is reread in a fresh transaction.
     },
     async updatePrice(portfolioId: string, positionId: string, input: unknown) {
       const userId = await actor();
-      resourceId.parse(portfolioId); resourceId.parse(positionId);
+      resourceId.parse(portfolioId);
+      resourceId.parse(positionId);
       return write(userId, portfolioId, async (tx) => {
         const row = await lockPosition(tx, portfolioId, positionId);
         const data = priceInput.parse(input);
-        if (row.assetType === "CASH" && !new Decimal(data.unitPrice).eq(1)) throw new ServiceError(400, "Cash unit price is fixed at 1.");
-        return positionDto(await tx.position.update({ where: { id_portfolioId: { id: positionId, portfolioId } },
-          data: { ...data, priceAsOf: new Date(), priceUpdatedBy: userId } }));
+        if (row.assetType === "CASH" && !new Decimal(data.unitPrice).eq(1))
+          throw new ServiceError(400, "Cash unit price is fixed at 1.");
+        return positionDto(
+          await tx.position.update({
+            where: { id_portfolioId: { id: positionId, portfolioId } },
+            data: { ...data, priceAsOf: new Date(), priceUpdatedBy: userId },
+          }),
+        );
       });
     },
   };

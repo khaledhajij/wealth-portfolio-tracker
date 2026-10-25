@@ -10,6 +10,9 @@ test("English formatting preserves large and fractional decimal strings without 
   assert.throws(() => usd("NaN"));
 });
 test("timestamps are displayed with an explicit UTC timezone", () => {
-  assert.equal(utcTime("2026-10-24T10:00:00.000Z"), utcTime("2026-10-24T12:00:00.000+02:00"));
+  assert.equal(
+    utcTime("2026-10-24T10:00:00.000Z"),
+    utcTime("2026-10-24T12:00:00.000+02:00"),
+  );
   assert.match(utcTime("2026-10-24T10:00:00.000Z"), /UTC$/);
 });

@@ -49,10 +49,10 @@ POST input is a strict name set: `portfolioId` (1-128 non-whitespace characters)
 
 Both tools accept a **strict empty object**:
 
-| Tool | Small, validated output |
-| --- | --- |
+| Tool                  | Small, validated output                                                                                                                                                                                             |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `getPortfolioSummary` | USD, exact total/display total, position count, three asset-allocation groups, oldest/newest manual-price timestamps (null for empty). Uses all portfolio positions for the total; no labels or full holdings list. |
-| `listPositions` | Up to 10 ID-ordered rows with asset type, label/symbol, quantity, unit price, value and priceAsOf; USD and hasMore. No member details, actor IDs or portfolio/user IDs. Omitted rows are explicitly disclosed. |
+| `listPositions`       | Up to 10 ID-ordered rows with asset type, label/symbol, quantity, unit price, value and priceAsOf; USD and hasMore. No member details, actor IDs or portfolio/user IDs. Omitted rows are explicitly disclosed.      |
 
 All monetary/quantity/percentage values come from existing server Decimal calculations as decimal strings. Cash remains fixed at USD 1. Tool output schemas enforce decimal/timestamp/string/list bounds before disclosure. Tools may read at different moments if manual holdings/prices change concurrently; this is not a shared historical snapshot or live market view. Result size is bounded, but the existing service still reads a portfolio's underlying movement-derived data; database aggregation optimization is outside this phase.
 

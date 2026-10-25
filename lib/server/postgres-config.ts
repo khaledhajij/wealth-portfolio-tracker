@@ -11,7 +11,9 @@ function parseUrl(value: string) {
     if (!["postgres:", "postgresql:"].includes(url.protocol)) throw new Error();
     return url;
   } catch {
-    throw new Error("DATABASE_URL must be a valid PostgreSQL URL; its value is suppressed.");
+    throw new Error(
+      "DATABASE_URL must be a valid PostgreSQL URL; its value is suppressed.",
+    );
   }
 }
 
@@ -26,7 +28,9 @@ function databaseCa() {
     if (!new X509Certificate(pem).ca) throw new Error();
     return { path, pem };
   } catch {
-    throw new Error("DATABASE_SSL_CA_FILE must point to a readable official PEM CA certificate.");
+    throw new Error(
+      "DATABASE_SSL_CA_FILE must point to a readable official PEM CA certificate.",
+    );
   }
 }
 
@@ -35,10 +39,25 @@ export function postgresConnectionOptions(value: string): PoolConfig {
   const ca = databaseCa();
   if (ca) {
     // pg URL SSL parameters otherwise replace the explicit ssl object.
-    for (const key of ["sslmode", "sslcert", "sslkey", "sslrootcert", "sslaccept"]) url.searchParams.delete(key);
-    return { connectionString: url.toString(), ssl: { ca: ca.pem, rejectUnauthorized: true }, connectionTimeoutMillis: 10000 };
+    for (const key of [
+      "sslmode",
+      "sslcert",
+      "sslkey",
+      "sslrootcert",
+      "sslaccept",
+    ])
+      url.searchParams.delete(key);
+    return {
+      connectionString: url.toString(),
+      ssl: { ca: ca.pem, rejectUnauthorized: true },
+      connectionTimeoutMillis: 10000,
+    };
   }
-  if ((url.hostname.endsWith(".supabase.co") || url.hostname.endsWith(".supabase.com")) && !url.searchParams.has("sslmode")) {
+  if (
+    (url.hostname.endsWith(".supabase.co") ||
+      url.hostname.endsWith(".supabase.com")) &&
+    !url.searchParams.has("sslmode")
+  ) {
     url.searchParams.set("sslmode", "verify-full");
   }
   return { connectionString: url.toString(), connectionTimeoutMillis: 10000 };

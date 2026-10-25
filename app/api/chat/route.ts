@@ -7,6 +7,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 40;
 
 export async function POST(request: Request) {
-  try { return await handleChat(request, { service: portfolios() }); }
-  catch (error) { return api(async () => { throw error; }); }
+  try {
+    return await handleChat(request, { service: portfolios() });
+  } catch (error) {
+    return api(async () => {
+      throw error;
+    });
+  }
 }

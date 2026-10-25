@@ -104,12 +104,12 @@ The database verification script inserts synthetic fixtures via the seed twice, 
 
 ## Tables and constraints
 
-| Table | Purpose / rules |
-| --- | --- |
-| User | Domain identity: id/name/unique email only. Synthetic `.invalid` addresses; no password, token, Account or Session tables. Phase 3 must migrate/reconcile it with the selected auth adapter before anyone can sign in. |
-| Portfolio | USD-only name/id; ownership is Membership, not a second owner column. |
-| Membership | Unique `(userId, portfolioId)` with OWNER/EDITOR/VIEWER enum and foreign keys. |
-| Position | Portfolio FK, STOCK/CRYPTO/CASH, label/symbol, `unitPrice Decimal(28,8)`, required timezone-aware `priceAsOf`; no stored balance. Symbol is uppercase/trimmed. CASH requires symbol USD and price exactly 1, so the compound symbol uniqueness allows one cash position per portfolio. |
+| Table            | Purpose / rules                                                                                                                                                                                                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| User             | Domain identity: id/name/unique email only. Synthetic `.invalid` addresses; no password, token, Account or Session tables. Phase 3 must migrate/reconcile it with the selected auth adapter before anyone can sign in.                                                                                                  |
+| Portfolio        | USD-only name/id; ownership is Membership, not a second owner column.                                                                                                                                                                                                                                                   |
+| Membership       | Unique `(userId, portfolioId)` with OWNER/EDITOR/VIEWER enum and foreign keys.                                                                                                                                                                                                                                          |
+| Position         | Portfolio FK, STOCK/CRYPTO/CASH, label/symbol, `unitPrice Decimal(28,8)`, required timezone-aware `priceAsOf`; no stored balance. Symbol is uppercase/trimmed. CASH requires symbol USD and price exactly 1, so the compound symbol uniqueness allows one cash position per portfolio.                                  |
 | PositionMovement | Composite `(positionId, portfolioId)` FK prevents a position from being paired with another portfolio. `signedQuantity Decimal(28,10)` is finite/nonzero; creator references User; `occurredAt` is the supplied event time, `createdAt` records insertion time. Nonempty `requestKey` is globally unique per operation. |
 
 Initial migration is generated from the schema. The second SQL migration adds USD-only, nonnegative finite price, cash price/symbol, nonempty-label/requestKey and nonzero finite quantity constraints; it also installs statement triggers rejecting movement UPDATE, DELETE and TRUNCATE. Foreign keys use RESTRICT, preserving referenced history. Corrections require a new movement with a new request key.
@@ -124,12 +124,12 @@ PostgreSQL fixed-scale NUMERIC can round excess input scale. The later write bou
 
 Seed uses stable IDs and insert-if-missing upserts. It never updates existing movement rows or deletes/reset data. For an existing movement requestKey it verifies the immutable payload; a conflict aborts the seed transaction. Existing portfolio names/prices/roles are preserved, so seed is not a reset command. Auth phase migrations must preserve/remap IDs referenced by history; no temporary credentials are assumed.
 
-| User | Portfolio A | Portfolio B |
-| --- | --- | --- |
-| demo-owner | Owner | Viewer |
-| demo-editor | Editor | No membership |
-| demo-viewer | Viewer | No membership |
-| demo-other-owner | No membership | Owner |
+| User             | Portfolio A   | Portfolio B   |
+| ---------------- | ------------- | ------------- |
+| demo-owner       | Owner         | Viewer        |
+| demo-editor      | Editor        | No membership |
+| demo-viewer      | Viewer        | No membership |
+| demo-other-owner | No membership | Owner         |
 
 - Portfolio A: stock movements `+12 -2 = 10` at manual price USD 50 = USD 500; cash +100 at fixed USD 1 = USD 100; total **600**.
 - Add a signed +2 stock movement at unchanged price 50: `12 * 50 + 100 = 700`; cash remains 100. The database scenario rolls back this temporary movement.

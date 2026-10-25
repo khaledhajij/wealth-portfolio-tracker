@@ -11,6 +11,10 @@ export async function GET(_request: Request, context: Context) {
 export async function POST(request: Request, context: Context) {
   return api(async () => {
     const { portfolioId, positionId } = await context.params;
-    return portfolios().recordMovement(portfolioId, positionId, await mutationBody(request));
+    return portfolios().recordMovement(
+      portfolioId,
+      positionId,
+      await mutationBody(request),
+    );
   });
 }

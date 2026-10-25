@@ -472,7 +472,10 @@ function MutationForm({
                 ? " Cash accepts cents only."
                 : " Cash is not adjusted automatically."}
             </p>
-            <p className="field-hint">Movement recorded at (UTC) is set automatically by the server when saved.</p>
+            <p className="field-hint">
+              Movement recorded at (UTC) is set automatically by the server when
+              saved.
+            </p>
             <label>
               Note <span className="optional-label">optional</span>
               <textarea
@@ -511,7 +514,10 @@ function MutationForm({
                   ? "USD cash always has a unit price of 1."
                   : "Enter a nonnegative price, with up to 8 decimal places."}
               </p>
-              <p className="field-hint">Price recorded at (UTC) is set automatically by the server when saved.</p>
+              <p className="field-hint">
+                Price recorded at (UTC) is set automatically by the server when
+                saved.
+              </p>
             </>
           )
         )}

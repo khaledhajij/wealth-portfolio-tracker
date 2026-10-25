@@ -12,13 +12,13 @@ Existing GET `/api/portfolios` returns only that session user's membership-filte
 
 Phase 5 adds allocationByAssetType to the shared valuation/summary result (assetType, exact value and percentage, including explicit zero groups). The dashboard also calls a new server-only portfolio-history reader with the same membership policy; no additional public history route or mutation was introduced. Phase 4 acceptance below describes the earlier user-verified API run; phase 5 UI evidence is separate in DASHBOARD.md.
 
-| Method and path | Result | Success status |
-| --- | --- | --- |
-| GET `/api/portfolios/:portfolioId/summary` | `{ portfolioId, currency, totalValue, displayTotal, positions }`; each valuation position has id, movement-derived quantity, unitPrice, priceAsOf, value and allocationPercent | 200 |
-| GET `/api/portfolios/:portfolioId/positions` | Array of `{ id, portfolioId, assetType, label, symbol, unitPrice, priceAsOf, quantity, value }` | 200 |
-| POST same positions path | Create a zero-quantity position; returns position metadata without an implicit movement | 201 |
-| POST `/api/portfolios/:portfolioId/positions/:positionId/movements` | Append a signed quantity movement; return `{ id, signedQuantity, occurredAt, note }` | 200, including identical retry |
-| PATCH `/api/portfolios/:portfolioId/positions/:positionId/valuation` | Update manual price/time with session-derived priceUpdatedBy; return position metadata | 200 |
+| Method and path                                                      | Result                                                                                                                                                                         | Success status                 |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
+| GET `/api/portfolios/:portfolioId/summary`                           | `{ portfolioId, currency, totalValue, displayTotal, positions }`; each valuation position has id, movement-derived quantity, unitPrice, priceAsOf, value and allocationPercent | 200                            |
+| GET `/api/portfolios/:portfolioId/positions`                         | Array of `{ id, portfolioId, assetType, label, symbol, unitPrice, priceAsOf, quantity, value }`                                                                                | 200                            |
+| POST same positions path                                             | Create a zero-quantity position; returns position metadata without an implicit movement                                                                                        | 201                            |
+| POST `/api/portfolios/:portfolioId/positions/:positionId/movements`  | Append a signed quantity movement; return `{ id, signedQuantity, occurredAt, note }`                                                                                           | 200, including identical retry |
+| PATCH `/api/portfolios/:portfolioId/positions/:positionId/valuation` | Update manual price/time with session-derived priceUpdatedBy; return position metadata                                                                                         | 200                            |
 
 Existing GET portfolio/individual-position/history routes remain. Existing PATCH on the individual position is a compatible alias of the valuation operation; both use the same updatePrice service. History GET remains bounded to the latest 100 rows; pagination is deferred. No movement update/delete method exists.
 
@@ -59,14 +59,14 @@ Financial HTTP mutation requests require a verified matching Origin and applicat
 
 Portfolio API errors have the additive, stable shape `{ code, error }`, retaining the existing error string:
 
-| Status | Code | Meaning |
-| --- | --- | --- |
-| 400 | INVALID_REQUEST | Invalid input, cash rule or insufficient resulting balance |
-| 401 | UNAUTHENTICATED | No valid session |
-| 403 | FORBIDDEN | Member lacks write access, or invalid HTTP origin |
-| 404 | NOT_FOUND | Unknown/inaccessible portfolio or resource; existence is not disclosed |
-| 409 | CONFLICT | Duplicate position, conflicting operation key or exhausted concurrency retries |
-| 503 | UNAVAILABLE | Unexpected failure; raw adapter errors and secrets are suppressed |
+| Status | Code            | Meaning                                                                        |
+| ------ | --------------- | ------------------------------------------------------------------------------ |
+| 400    | INVALID_REQUEST | Invalid input, cash rule or insufficient resulting balance                     |
+| 401    | UNAUTHENTICATED | No valid session                                                               |
+| 403    | FORBIDDEN       | Member lacks write access, or invalid HTTP origin                              |
+| 404    | NOT_FOUND       | Unknown/inaccessible portfolio or resource; existence is not disclosed         |
+| 409    | CONFLICT        | Duplicate position, conflicting operation key or exhausted concurrency retries |
+| 503    | UNAVAILABLE     | Unexpected failure; raw adapter errors and secrets are suppressed              |
 
 All handled portfolio API responses use `Cache-Control: private, no-store` and `Vary: Cookie`. Unsupported methods use Next.js's framework 405 behavior. Library auth endpoints retain the library's response contracts.
 
