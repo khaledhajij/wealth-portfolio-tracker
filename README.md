@@ -1,14 +1,16 @@
 # Wealth Portfolio Tracker
 
-Talent Syria assessment prototype. **Phase 5 dashboard implemented; live browser/database journey verification is pending. Phase 4 API acceptance passed in the supplied user-terminal run.**
+Talent Syria assessment prototype. **Phase 5.5 portfolio creation and phase 5 dashboard implemented; live database/browser acceptance is pending. Phase 4 API acceptance passed in the supplied user-terminal run.**
 
-The home page remains a static introduction without fabricated balances. Sign-in opens `/portfolios`; portfolio detail shows real session-scoped holdings, asset-type allocation, movement history and manual-price forms. No fake database fallback or AI is implemented. The agent's database connection still times out, so authenticated dashboard verification remains pending. See [dashboard flow and browser checks](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
+Authenticated users can create an empty USD portfolio from `/portfolios`. Each creation atomically adds that user's Owner membership; being a Viewer elsewhere does not restrict this. No new migration or seed is required. Run `npm run build` then `npm run test:ui` from a database-connected terminal to verify creation/rollback/isolation and the dashboard journey; current agent results are in STATUS.
+
+The home page redirects to `/portfolios`, which uses the existing session-protected dashboard and sends signed-out users to `/sign-in`. Sign-in opens `/portfolios`; portfolio detail shows real session-scoped holdings, asset-type allocation, movement history and manual-price forms. No fake database fallback or AI is implemented. The agent's database connection still times out, so authenticated dashboard verification remains pending. See [dashboard flow and browser checks](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
 
 ## Prerequisites and package manager
 
 - Node.js **24.18.0** and npm **11.16.0**, the versions used for this phase. `.nvmrc` records Node; `package.json` declares the supported Node 24/npm 11 ranges and package manager. A Node version manager is optional; Windows PowerShell is supported.
 - Network access to the npm registry for initial installation and the platform-specific Next.js/Tailwind compiler packages. No global Next.js CLI is needed.
-- A reachable PostgreSQL **17.x** database: the user's Supabase inspector reported **17.11**. A local PostgreSQL server/psql is an alternative, not required when using Supabase. See [database setup](docs/DATABASE.md). The static page, generated client, unit tests and build need no running database or AI key.
+- A reachable PostgreSQL **17.x** database: the user's Supabase inspector reported **17.11**. A local PostgreSQL server/psql is an alternative, not required when using Supabase. See [database setup](docs/DATABASE.md). The generated client, unit tests and build need no running database or AI key. Dashboard data requires the configured database and authentication.
 
 Use npm and the single `package-lock.json`; do not generate a second package manager lockfile. Direct dependencies are exact-pinned; `.npmrc` keeps future npm additions exact by default. `npm ci` installs the lockfile without updating it.
 

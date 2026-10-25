@@ -1,7 +1,7 @@
 import "server-only";
 import { Prisma, type PrismaClient } from "../../generated/prisma/client";
 import { calculateValuation } from "./valuation";
-import { movementInput, positionInput, priceInput, resourceId } from "./contracts";
+import { movementInput, portfolioInput, positionInput, priceInput, resourceId } from "./contracts";
 import { ServiceError } from "./service-error";
 
 const Decimal = Prisma.Decimal.clone({ precision: 80 });
@@ -82,6 +82,18 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
     return row;
   }
   return {
+    async createPortfolio(input: unknown) {
+      // Creation has no preexisting portfolio role: every authenticated user may
+      // own a new portfolio, including a Viewer in a different portfolio.
+      const userId = await actor();
+      const data = portfolioInput.parse(input);
+      return db.$transaction(async (tx) => {
+        const portfolio = await tx.portfolio.create({ data: { name: data.name, currency: "USD" },
+          select: { id: true, name: true, currency: true } });
+        await tx.membership.create({ data: { userId, portfolioId: portfolio.id, role: "OWNER" } });
+        return { ...portfolio, role: "OWNER" as const };
+      }, { timeout: 30000 });
+    },
     async listPortfolios() {
       const userId = await actor();
       const rows = await db.membership.findMany({ where: { userId, role: { in: ["OWNER", "EDITOR", "VIEWER"] } },

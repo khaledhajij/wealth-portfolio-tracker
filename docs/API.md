@@ -4,6 +4,10 @@ Implemented in the existing single Next.js 16.4.3 application, using Prisma 7.10
 
 ## Routes and DTOs
 
+Phase 5.5 adds authenticated POST `/api/portfolios` with `{ "name": "My portfolio" }`. The strict contract trims the name (1-100 characters) and rejects extra fields, including userId/ownerId/role/currency. The service derives the actor from the session and inserts Portfolio (USD) plus OWNER Membership in one interactive transaction; failure rolls back both. No preexisting membership is required. Returns 201 `{ id, name, currency: "USD", role: "OWNER" }`, with existing Origin/JSON/body-limit/error/no-store protections. Creation has no automatic retry/idempotency key: after an ambiguous network result, check the list before trying again. Names need not be unique.
+
+Existing GET `/api/portfolios` returns only that session user's membership-filtered `{ id, name, currency, role }` rows (200); no membership details or other users' portfolios. Both operations require a valid session. A Viewer in another portfolio can create and own a new one. No invitations, role-management or delete endpoint is added. Real creation/rollback/isolation test execution is pending; see phase 5.5 evidence in STATUS.
+
 Phase 5 adds allocationByAssetType to the shared valuation/summary result (assetType, exact value and percentage, including explicit zero groups). The dashboard also calls a new server-only portfolio-history reader with the same membership policy; no additional public history route or mutation was introduced. Phase 4 acceptance below describes the earlier user-verified API run; phase 5 UI evidence is separate in DASHBOARD.md.
 
 | Method and path | Result | Success status |

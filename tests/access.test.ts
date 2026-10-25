@@ -67,6 +67,7 @@ function fixture(initialRole: string | null = "OWNER", existingMovement?: {
 test("missing session rejects every service operation before database access", async () => {
   const f = fixture(); f.signOut();
   const operations = [
+    () => f.service.createPortfolio({ name: "New portfolio" }),
     () => f.service.listPortfolios(), () => f.service.getPortfolio("portfolio-a"),
     () => f.service.getSummary("portfolio-a"), () => f.service.listPositions("portfolio-a"),
     () => f.service.listPortfolioMovements("portfolio-a"),

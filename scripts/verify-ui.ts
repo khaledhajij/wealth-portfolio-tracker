@@ -8,6 +8,9 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDatabaseClient } from "../lib/server/db";
 import { demoPassword } from "../prisma/seed-auth";
+import { hashPassword } from "better-auth/crypto";
+import type { PrismaClient } from "../generated/prisma/client";
+import { createPortfolioService } from "../lib/server/portfolio-service";
 
 nextEnv.loadEnvConfig(process.cwd());
 const check = expect.configure({ timeout: 20000 });
@@ -77,6 +80,80 @@ async function movement(page: Page, symbol: string, quantity: string, decrease =
   return dialog;
 }
 
+async function createPortfolio(page: Page, name: string, holdRequest = false) {
+  await page.getByRole("button", { name: "Create portfolio", exact: true }).first().click();
+  const dialog = page.getByRole("dialog");
+  const field = dialog.getByLabel("Portfolio name", { exact: true });
+  await check(field).toBeFocused();
+  const bounds = await dialog.boundingBox();
+  const viewport = page.viewportSize();
+  assert.ok(bounds && viewport && bounds.x >= 0 && bounds.x + bounds.width <= viewport.width);
+  await dialog.getByRole("button", { name: "Create portfolio", exact: true }).click();
+  await check(field).toBeFocused(); // native required validation
+  await field.fill("   ");
+  await dialog.getByRole("button", { name: "Create portfolio", exact: true }).click();
+  await check(dialog.getByRole("alert")).toBeFocused();
+  await check(field).toHaveValue("   ");
+  await check(field).toHaveAttribute("maxlength", "100");
+  await field.fill(name);
+  let release!: () => void;
+  let intercepted!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  const arrived = new Promise<void>((resolve) => { intercepted = resolve; });
+  let count = 0;
+  if (holdRequest) await page.route("**/api/portfolios", async (route) => {
+    if (route.request().method() !== "POST") { await route.continue(); return; }
+    count++; intercepted(); await gate; await route.continue();
+  });
+  const response = page.waitForResponse((res) => res.url() === `${origin}/api/portfolios` && res.request().method() === "POST");
+  await dialog.getByRole("button", { name: "Create portfolio", exact: true }).click();
+  if (holdRequest) {
+    try {
+      await arrived;
+      await check(dialog.getByRole("button", { name: /^Saving/ })).toBeDisabled();
+      await check(dialog.getByRole("button", { name: "Cancel", exact: true })).toBeDisabled();
+      await page.keyboard.press("Enter");
+      assert.equal(count, 1);
+    } finally { release(); }
+  }
+  const created = await response;
+  assert.equal(created.status(), 201);
+  const dto = await created.json() as { id: string; name: string; currency: string; role: string };
+  assert.deepEqual(Object.keys(dto).sort(), ["currency", "id", "name", "role"]);
+  assert.equal(dto.name, name.trim()); assert.equal(dto.currency, "USD"); assert.equal(dto.role, "OWNER");
+  await check(page).toHaveURL(`${origin}/portfolios/${dto.id}`);
+  if (holdRequest) await page.unroute("**/api/portfolios");
+  await check(page.getByRole("heading", { name: name.trim(), exact: true })).toBeVisible();
+  await check(page.getByTestId("portfolio-total")).toHaveText("$0.00");
+  await check(page.getByRole("heading", { name: "A clear starting point" })).toBeVisible();
+  await check(page.getByRole("heading", { name: "No movements recorded" })).toBeVisible();
+  await check(page.locator(".allocation-list")).not.toContainText(/NaN|Infinity/);
+  assert.equal(await db.membership.count({ where: { portfolioId: dto.id } }), 1);
+  assert.equal(await db.position.count({ where: { portfolioId: dto.id } }), 0);
+  assert.equal(await db.positionMovement.count({ where: { portfolioId: dto.id } }), 0);
+  return dto;
+}
+
+async function verifyRollback(name: string) {
+  // Fault injection is confined to this test: the real first INSERT runs, then
+  // a real FK violation in the second INSERT must roll back the transaction.
+  // This internal service probe is not an authentication substitute; HTTP cases
+  // below use real Better Auth sessions and the unmodified production routes.
+  let attempted = false;
+  const failingDb = { $transaction: async (operation: (tx: unknown) => Promise<unknown>) => db.$transaction(async (tx) => {
+    return operation({ portfolio: tx.portfolio, membership: { create: async (args: { data: { portfolioId: string } }) => {
+      assert.equal(await tx.portfolio.count({ where: { id: args.data.portfolioId, name } }), 1);
+      attempted = true;
+      return tx.membership.create({ data: { portfolioId: args.data.portfolioId, userId: `absent:${randomUUID()}`, role: "OWNER" } });
+    } } });
+  }, { timeout: 30000 }) } as unknown as PrismaClient;
+  const service = createPortfolioService(failingDb, async () => ({ id: "demo-owner" }));
+  await assert.rejects(service.createPortfolio({ name }), (error: unknown) =>
+    !!error && typeof error === "object" && "code" in error && error.code === "P2003");
+  assert.equal(attempted, true);
+  assert.equal(await db.portfolio.count({ where: { name } }), 0);
+}
+
 try {
   const local = readdirSync("prisma/migrations").filter((name) => !name.endsWith(".toml"));
   const history = await db.$queryRaw<{ migration_name: string; checksum: string; finished_at: Date | null; rolled_back_at: Date | null }[]>`
@@ -91,16 +168,46 @@ try {
   await launchServer();
   const channel = process.env.PLAYWRIGHT_CHANNEL || (!existsSync(chromium.executablePath()) && process.platform === "win32" && existsSync("C:/Program Files/Google/Chrome/Application/chrome.exe") ? "chrome" : undefined);
   browser = await chromium.launch({ headless: true, ...(channel ? { channel } : {}) });
+  stage = "anonymous portfolio creation and listing rejection";
+  const anonymous = await browser.newContext(); contexts.push(anonymous);
+  assert.equal((await anonymous.request.get(`${origin}/api/portfolios`)).status(), 401);
+  assert.equal((await anonymous.request.post(`${origin}/api/portfolios`, { headers: { Origin: origin }, data: { name: "Denied anonymous" } })).status(), 401);
   const owner = await login("owner@example.invalid");
-  const id = `verify-ui:${randomUUID()}`;
-  const name = `[Synthetic verification] Dashboard ${id.slice(-8)}`;
-  stage = "isolated synthetic portfolio fixture";
+  const runId = randomUUID();
+  const name = `[Synthetic verification] Dashboard ${runId.slice(-8)}`;
+  stage = "portfolio validation, identity injection, and membership failure rollback";
+  for (const data of [{}, { name: " " }, { name: 3 }, { name: "x".repeat(101) },
+    ...["userId", "ownerId", "role", "currency"].map((key) => ({ name, [key]: "demo-other-owner" }))]) {
+    assert.equal((await owner.request.post(`${origin}/api/portfolios`, { headers: { Origin: origin }, data })).status(), 400);
+  }
+  assert.equal(await db.portfolio.count({ where: { name } }), 0);
+  await verifyRollback(`[Synthetic rollback] ${runId}`);
+  stage = "Owner creates empty portfolio through real UI and pending guard";
+  // A real service error is requested cross-origin: retain input and focus error.
+  await owner.getByRole("button", { name: "Create portfolio", exact: true }).first().click();
+  await owner.getByLabel("Portfolio name", { exact: true }).fill(name);
+  await owner.route("**/api/portfolios", async (route) => {
+    await route.continue({ headers: { ...route.request().headers(), origin: "https://untrusted.example.invalid" } });
+  });
+  const rejectedCreation = owner.waitForResponse((res) => res.url() === `${origin}/api/portfolios` && res.request().method() === "POST");
+  await owner.getByRole("dialog").getByRole("button", { name: "Create portfolio", exact: true }).click();
+  assert.equal((await rejectedCreation).status(), 403);
+  await check(owner.getByRole("dialog").getByRole("alert")).toBeFocused();
+  await check(owner.getByLabel("Portfolio name", { exact: true })).toHaveValue(name);
+  await owner.unroute("**/api/portfolios");
+  await owner.getByRole("button", { name: "Cancel", exact: true }).click();
+  const { id } = await createPortfolio(owner, name, true);
+  assert.equal(await db.portfolio.count({ where: { name } }), 1);
+  assert.equal((await db.membership.findUniqueOrThrow({ where: { userId_portfolioId: { userId: "demo-owner", portfolioId: id } } })).role, "OWNER");
+  await owner.goto(`${origin}/portfolios`);
+  await check(owner.getByRole("link").filter({ has: owner.getByRole("heading", { name, exact: true }) })).toBeVisible();
+  stage = "isolated synthetic collaborator fixtures for existing dashboard checks";
   await db.$transaction(async (tx) => {
-    await tx.portfolio.create({ data: { id, name } });
-    for (const [userId, role] of [["demo-owner", "OWNER"], ["demo-editor", "EDITOR"], ["demo-viewer", "VIEWER"]] as const) {
+    for (const [userId, role] of [["demo-editor", "EDITOR"], ["demo-viewer", "VIEWER"]] as const) {
       await tx.membership.create({ data: { userId, role, portfolioId: id } });
     }
   }, { timeout: 30000 });
+  console.log("PASS: anonymous/invalid/injected requests denied; real FK membership failure rolls back portfolio; UI creates exactly one empty USD portfolio with session-derived Owner");
   const url = `${origin}/portfolios/${encodeURIComponent(id)}`;
   stage = "Owner empty state, native validation and pending controls";
   await owner.goto(url);
@@ -168,6 +275,31 @@ try {
   const denied = await viewer.request.post(`${origin}/api/portfolios/${id}/positions`, { headers: { Origin: origin, "x-role": "OWNER" }, data: { assetType: "STOCK", label: "Denied", symbol: "DENIED", unitPrice: "1", priceAsOf: new Date().toISOString() } });
   assert.equal(denied.status(), 403);
   await viewer.screenshot({ path: ".playwright-mcp/dashboard-viewer.png", fullPage: true });
+  stage = "Viewer creates own portfolio; portfolio-scoped roles and isolated lists";
+  await viewer.goto(`${origin}/portfolios`);
+  const own = await createPortfolio(viewer, `[Synthetic Viewer-owned] ${runId.slice(-8)}`);
+  const viewerList = await (await viewer.request.get(`${origin}/api/portfolios`)).json() as { id: string; role: string }[];
+  assert.equal(viewerList.find((row) => row.id === id)?.role, "VIEWER");
+  assert.equal(viewerList.find((row) => row.id === own.id)?.role, "OWNER");
+  const ownerList = await (await owner.request.get(`${origin}/api/portfolios`)).json() as { id: string }[];
+  assert.equal(ownerList.some((row) => row.id === own.id), false);
+  assert.equal((await owner.request.get(`${origin}/api/portfolios/${own.id}/summary`)).status(), 404);
+  assert.equal((await viewer.request.get(`${origin}/api/portfolios/${own.id}/summary`)).status(), 200);
+  stage = "fresh synthetic account, no-portfolios mobile creation journey";
+  const freshId = `verify-ui-user:${runId}`;
+  const freshEmail = `${runId}@example.invalid`;
+  const password = await hashPassword(demoPassword());
+  await db.$transaction(async (tx) => {
+    await tx.user.create({ data: { id: freshId, name: "Synthetic UI verification", email: freshEmail } });
+    await tx.account.create({ data: { id: `credential:${freshId}`, userId: freshId, accountId: freshId, providerId: "credential", password } });
+  }, { timeout: 30000 });
+  const fresh = await login(freshEmail, true);
+  await check(fresh.getByRole("heading", { name: "No portfolios yet" })).toBeVisible();
+  assert.deepEqual(await (await fresh.request.get(`${origin}/api/portfolios`)).json(), []);
+  const freshPortfolio = await createPortfolio(fresh, `[Synthetic first portfolio] ${runId.slice(-8)}`);
+  assert.equal(await fresh.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
+  assert.equal((await owner.request.get(`${origin}/api/portfolios/${freshPortfolio.id}/summary`)).status(), 404);
+  console.log("PASS: Viewer can own another portfolio; server-filtered lists/nonmember denial; fresh account empty list and mobile zero-value dashboard");
   stage = "nonmember and logout";
   const other = await login("other@example.invalid"); await other.goto(url);
   await check(other.getByRole("heading", { name: "This portfolio isn’t available." })).toBeVisible();

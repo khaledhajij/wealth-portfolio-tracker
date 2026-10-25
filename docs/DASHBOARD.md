@@ -1,5 +1,7 @@
 # Phase 5 dashboard
 
+Phase 5.5 extends this dashboard with creation from the portfolio list (including no-portfolios state). A labeled 1-100 character name form reuses the native dialog/pending/error/focus provider. USD and Owner identity are server-derived; success refreshes accessible data and navigates to the new empty detail. Creation is offered regardless of roles in other portfolios. Ambiguous network results ask the user to refresh the list before retrying. No seeded positions/movements are added. List presentation is extracted to list-view.tsx; session-bound initial reads stay in page.tsx. Current local/component versus real database verification is recorded separately in STATUS.
+
 ## Implemented experience
 
 English-only prototype at `/portfolios` and `/portfolios/:portfolioId`. Sign-in now opens the portfolio list; `/account` remains available with a dashboard link. No multilingual support, AI, market feed, trade execution or P&L was added.
@@ -49,7 +51,7 @@ npm run test:ui
 
 The script uses Playwright Chromium if installed. On Windows, if bundled Chromium is missing and Chrome exists at the standard Program Files location, it uses installed Chrome. Otherwise install the matching browser with `npx playwright install chromium`. Optional `PLAYWRIGHT_CHANNEL=chrome` selects Chrome explicitly. Node 24/npm 11 prerequisites remain unchanged.
 
-`test:ui` first checks migration history/checksums, then starts its own production server on a free loopback port. It signs in through the **real** form and creates a new labeled synthetic portfolio with existing Owner/Editor/Viewer memberships. No existing portfolio is reset and no password values, session cookies or connection strings are logged. It verifies:
+`test:ui` first checks migration history/checksums, then starts its own production server on a free loopback port. It signs in through the **real** form and creates a new labeled synthetic portfolio through the creation UI, verifies its sole Owner membership, then adds Editor/Viewer memberships only to this new fixture for the earlier dashboard checks. It also checks real FK failure rollback, denied anonymous/invalid/injected requests, isolated lists, a Viewer creating their own portfolio, and a fresh synthetic hashed-credential account with an empty list. No existing portfolio is reset and no password values, session cookies or connection strings are logged. It additionally verifies:
 
 - Owner list/detail/empty state, native missing-field focus, real pending request lock, add-position/opening movements/cash, 600 -> 700 after +2 units, manual price refresh to 820, history and overdraw error focus/cancel restoration.
 - Editor writes/fractional holdings at a 390px touch viewport, table/page overflow and dialog containment.

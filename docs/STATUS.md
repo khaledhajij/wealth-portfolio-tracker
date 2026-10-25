@@ -1,7 +1,32 @@
 # Status
 
-As of 2026-10-25. Current phase: 5 - dashboard implemented, local/component checks passed; authenticated database-backed UI acceptance PENDING. Phase 4 acceptance remains complete from the supplied user run.
+As of 2026-10-25. Current phase: 5.5 - portfolio creation implemented; local checks passed; real database/browser creation and rollback acceptance PENDING. Phase 5 authenticated UI acceptance remains pending. Phase 4 acceptance remains complete from the supplied user run.
 Assessment deadline: end of 2026-10-25, Damascus time.
+
+## Authorized home-page follow-up
+
+- Replaced `app/page.tsx` introduction with a server `redirect("/portfolios")`. Existing dashboard/layout/session checks remain in their original routes. Updated README/PLAN and AI usage; preserved all phase 5.5 work.
+- `npm run build` (including TypeScript) and `npm run lint`: exit 0. Production root probe: 307 with Location `/portfolios`. Real Chrome anonymous journey from `/` reaches `/sign-in` with the email field visible. Existing anonymous API/Origin/JSON/no-store probes also passed. Own temporary server/browser closed; no database writes.
+- The first HTTP probe incorrectly expected a 307 for the streamed dashboard response; Next returned 200 with deferred redirect behavior. Corrected that assertion to verify the actual browser destination; rerun passed. Authenticated dashboard/database acceptance remains pending as recorded below; no new phase started.
+
+## Phase 5.5 implementation and verification boundary
+
+- Reviewed repository/ancestor instruction locations, PLAN/status, Git, versions/schema and existing auth/services/routes/dashboard before changes. Git was clean. Reused membership-filtered GET, trusted `requireUser`, strict Zod/error/security conventions, server valuation and native dialog. Preserved migrations, authentication settings, dependencies and prior work.
+- Implemented POST `/api/portfolios`: session required, name-only contract trims and accepts 1-100 characters; extra identity/role/currency fields rejected. USD is set on the server. Portfolio plus session user's OWNER membership use one interactive transaction. No existing portfolio role is required; Viewer in one portfolio may own another. Minimal id/name/currency/role DTO, 201, private/no-store, existing Origin/body safeguards and sanitized errors.
+- Portfolio list remains server-filtered by current membership. Extracted its presentation for reuse/component checks; initial reads stay in the Server Component. Creation form reuses existing native dialog, labels, pending ref/disabled controls, error/return focus and retained input. Success refreshes server data and navigates to the returned ID. Empty list exposes creation; new portfolios have no automatic positions/movements, and existing valuation handles zero values. No local totals or shared private-data cache.
+- Expanded `test:ui` to use actual portfolio creation through the UI, then add collaborators only to its new synthetic fixture for existing dashboard checks. Added real-session list/isolation/Viewer-owner/empty-account checks and a fault-injection probe: actual first PostgreSQL INSERT, actual membership FK failure (P2003), then assert no orphan. Synthetic new users use Better Auth hashes; no registration endpoint or fake auth added. These new database/browser checks are **implemented but not reached** in this agent environment.
+
+| Command/check | Actual phase 5.5 result |
+| --- | --- |
+| `npm test` | Exit 0: **38 passed**, none skipped. Includes name/authority contracts, session denial, same-transaction trusted-user membership, exception propagation, filtered minimal listing, existing role/isolation/zero/valuation tests. DB/session doubles are unit evidence only. |
+| `npm run typecheck`, `npm run lint`, `npm run build` | Passed, exit 0. Initial TypeScript discrimination error corrected by splitting the new dialog intent variants; final checks passed. No migration or new dependency required. |
+| Production loopback HTTP probes | Exit 0: anonymous listing/creation with forged headers 401, untrusted/missing Origin 403, malformed JSON 400; stable safe DTO errors and private/no-store. Own server stopped; no database writes. |
+| Isolated component checks, real components + explicit test doubles | Exit 0 at 1440px/390px: empty-list/Viewer fixture creation actions, native/whitespace validation, retained fields, pending single submit/disabled cancel/Escape guard, error/cancel focus, controlled success invokes stub refresh/navigation. No page overflow. Screenshot inspected. Controlled 400/201 responses, synthetic fixtures and stub router are clearly TEST ONLY, under ignored tmp; not successful database/session evidence. |
+| `npm run test:ui` | Exit 1 at **read-only migration preflight**, including a network-enabled retry, before server/browser/session/fixture writes. Real creation, exact SQL membership count, SQL rollback, list isolation and authenticated UI navigation remain unverified here. |
+
+Final file checks: Git diff whitespace check passed; schema/migrations/auth configuration/package files unchanged. Private environment/certificate files remain untracked and ignored. Scanned 13 production browser JS bundles for the three configured database/session-secret/demo-password values: zero matches. Local file-link/whitespace and lock-pin checks passed. Temporary component/HTTP servers were stopped; one component rerun initially targeted the already stopped helper and failed connection-refused, then passed with a self-starting/self-stopping helper.
+
+To close the remaining gate from the user's database-connected terminal, run `npm run build` then `npm run test:ui` with existing private database/auth/demo configuration. It retains labeled synthetic accounts/portfolios/audit movements and signs out its sessions; it does not delete/reset existing holdings or modify managed schemas. No new migration/seed/password reset is required. Phase 5.5 is **not marked fully verified**. AI and phase 6 have not started; earlier auth limitations below remain unchanged.
 
 ## Phase 5 current implementation and evidence
 

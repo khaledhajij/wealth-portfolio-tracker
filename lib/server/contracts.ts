@@ -2,6 +2,8 @@ import "server-only";
 import { z } from "zod";
 
 export const resourceId = z.string().min(1).max(128).regex(/^\S+$/, "Resource ID must not contain whitespace.");
+// No existing portfolio-name limit: use 100 characters for this prototype.
+export const portfolioInput = z.strictObject({ name: z.string().trim().min(1).max(100) });
 const timestamp = z.iso.datetime({ offset: true })
   .refine((value) => !/\.\d{4,}/.test(value), "Use at most millisecond timestamp precision.")
   .refine((value) => Date.parse(value) <= Date.now(), "Timestamp must not be in the future.");

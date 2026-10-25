@@ -4,12 +4,12 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { EditablePosition } from "@/lib/portfolio-display";
 
-type Intent = { kind: "position" } | { kind: "movement" | "price"; position: EditablePosition };
+type Intent = { kind: "portfolio" } | { kind: "position" } | { kind: "movement" | "price"; position: EditablePosition };
 type Actions = { canWrite: boolean; busy: boolean; open: (intent: Intent, trigger: HTMLButtonElement) => void };
 const Context = createContext<Actions | null>(null);
 function useActions() { const value = useContext(Context); if (!value) throw new Error("Portfolio actions require a provider."); return value; }
 
-export function PortfolioActions({ portfolioId, canWrite, children }: { portfolioId: string; canWrite: boolean; children: ReactNode }) {
+export function PortfolioActions({ portfolioId = "", canWrite, children }: { portfolioId?: string; canWrite: boolean; children: ReactNode }) {
   const [intent, setIntent] = useState<Intent | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState("");
@@ -39,12 +39,20 @@ export function PortfolioActions({ portfolioId, canWrite, children }: { portfoli
       onCancel={(event) => { if (saving) event.preventDefault(); }}
       onClose={() => { setIntent(null); opener.current?.focus(); }}>
       {intent && <MutationForm intent={intent} portfolioId={portfolioId} saving={saving} setSaving={setSaving}
-        close={() => dialog.current?.close()} success={(message) => {
+        close={() => dialog.current?.close()} success={(message, createdPortfolioId) => {
           dialog.current?.close(); setNotice(message);
-          startTransition(() => router.refresh());
+          startTransition(() => {
+            router.refresh();
+            if (createdPortfolioId) router.push(`/portfolios/${encodeURIComponent(createdPortfolioId)}`);
+          });
         }} />}
     </dialog>
   </Context.Provider>;
+}
+
+export function CreatePortfolioButton() {
+  const { busy, open } = useActions();
+  return <button type="button" className="button-primary" disabled={busy} onClick={(event) => open({ kind: "portfolio" }, event.currentTarget)}><span aria-hidden="true">＋</span> Create portfolio</button>;
 }
 
 export function AddPositionButton() {
@@ -59,7 +67,7 @@ export function PositionActions({ position }: { position: EditablePosition }) {
 }
 
 function MutationForm({ intent, portfolioId, saving, setSaving, close, success }: {
-  intent: Intent; portfolioId: string; saving: boolean; setSaving: (value: boolean) => void; close: () => void; success: (message: string) => void;
+  intent: Intent; portfolioId: string; saving: boolean; setSaving: (value: boolean) => void; close: () => void; success: (message: string, createdPortfolioId?: string) => void;
 }) {
   const [assetType, setAssetType] = useState("STOCK");
   const [observedAt] = useState(() => new Date().toISOString().slice(0, 16));
@@ -68,9 +76,9 @@ function MutationForm({ intent, portfolioId, saving, setSaving, close, success }
   const errorBox = useRef<HTMLDivElement>(null);
   const pending = useRef(false);
   const operation = useRef<{ fingerprint: string; key: string } | null>(null);
-  const cash = intent.kind === "position" ? assetType === "CASH" : intent.position.assetType === "CASH";
-  const title = intent.kind === "position" ? "Add a position" : intent.kind === "movement" ? "Record a movement" : "Update a manual price";
-  const buttonText = intent.kind === "position" ? "Create position" : intent.kind === "movement" ? "Record movement" : "Save price";
+  const cash = intent.kind === "portfolio" ? false : intent.kind === "position" ? assetType === "CASH" : intent.position.assetType === "CASH";
+  const title = intent.kind === "portfolio" ? "Create a portfolio" : intent.kind === "position" ? "Add a position" : intent.kind === "movement" ? "Record a movement" : "Update a manual price";
+  const buttonText = intent.kind === "portfolio" ? "Create portfolio" : intent.kind === "position" ? "Create position" : intent.kind === "movement" ? "Record movement" : "Save price";
   useEffect(() => { if (error) errorBox.current?.focus(); }, [error]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -83,7 +91,12 @@ function MutationForm({ intent, portfolioId, saving, setSaving, close, success }
     let body: Record<string, string>;
     let url = base;
     try {
-      if (intent.kind === "position") body = { assetType: value("assetType"), label: value("label"), symbol: cash ? "USD" : value("symbol"), unitPrice: cash ? "1" : value("unitPrice"), priceAsOf: timestamp("priceAsOf") };
+      if (intent.kind === "portfolio") {
+        const name = value("name");
+        if (!name || name.length > 100) { setError("Enter a portfolio name between 1 and 100 characters."); return; }
+        url = "/api/portfolios"; body = { name };
+      }
+      else if (intent.kind === "position") body = { assetType: value("assetType"), label: value("label"), symbol: cash ? "USD" : value("symbol"), unitPrice: cash ? "1" : value("unitPrice"), priceAsOf: timestamp("priceAsOf") };
       else if (intent.kind === "price") {
         url += `/${encodeURIComponent(intent.position.id)}/valuation`;
         body = { unitPrice: value("unitPrice"), priceAsOf: timestamp("priceAsOf") };
@@ -104,18 +117,26 @@ function MutationForm({ intent, portfolioId, saving, setSaving, close, success }
         setSignedOut(response.status === 401); setError(message);
         return;
       }
+      if (intent.kind === "portfolio") {
+        const result: unknown = await response.json().catch(() => null);
+        if (!result || typeof result !== "object" || !("id" in result) || typeof result.id !== "string" || !result.id) {
+          setError("The portfolio may have been created. Refresh the list before trying again."); return;
+        }
+        success("Portfolio created.", result.id); return;
+      }
       operation.current = null;
       success(intent.kind === "position" ? "Position created. Record a movement to add its opening quantity." : intent.kind === "movement" ? "Movement recorded. Your holdings have been updated." : "Manual price updated. Quantities are unchanged.");
     } catch {
-      setError(intent.kind === "movement" ? "The connection was interrupted. Check history before changing this adjustment. Retrying unchanged details safely reuses the same operation." : "The connection was interrupted. Refresh the portfolio to check whether the change was saved before trying again.");
+      setError(intent.kind === "portfolio" ? "The connection was interrupted. Refresh your portfolio list to check whether it was created before trying again." : intent.kind === "movement" ? "The connection was interrupted. Check history before changing this adjustment. Retrying unchanged details safely reuses the same operation." : "The connection was interrupted. Refresh the portfolio to check whether the change was saved before trying again.");
     } finally { pending.current = false; setSaving(false); }
   }
   // Keep input state local; all portfolio quantities/totals arrive from server refresh.
   return <form onSubmit={submit}>
-    <div className="dialog-heading"><div><p className="eyebrow">{intent.kind === "position" ? "PORTFOLIO POSITION" : intent.position.symbol}</p><h2 id="editor-title">{title}</h2></div><button type="button" className="dialog-close" aria-label="Close form" onClick={close} disabled={saving}>×</button></div>
-    <p id="editor-description" className="dialog-description">{intent.kind === "position" ? "Create an asset record first. Its quantity starts at zero until you record a movement." : intent.kind === "movement" ? "Record an adjustment to externally held assets. This does not execute a purchase or change another position." : "Record your observed USD unit price and when it was observed. This is a manual valuation."}</p>
+    <div className="dialog-heading"><div><p className="eyebrow">{intent.kind === "portfolio" ? "NEW PORTFOLIO" : intent.kind === "position" ? "PORTFOLIO POSITION" : intent.position.symbol}</p><h2 id="editor-title">{title}</h2></div><button type="button" className="dialog-close" aria-label="Close form" onClick={close} disabled={saving}>×</button></div>
+    <p id="editor-description" className="dialog-description">{intent.kind === "portfolio" ? "Start an empty USD portfolio. You will be its Owner, with access to add positions and record holdings." : intent.kind === "position" ? "Create an asset record first. Its quantity starts at zero until you record a movement." : intent.kind === "movement" ? "Record an adjustment to externally held assets. This does not execute a purchase or change another position." : "Record your observed USD unit price and when it was observed. This is a manual valuation."}</p>
     {error && <div ref={errorBox} role="alert" tabIndex={-1} className="form-error"><p>{error}</p>{signedOut && <Link className="text-link" href="/sign-in">Sign in again</Link>}</div>}
     <fieldset disabled={saving} className="form-fields">
+      {intent.kind === "portfolio" && <><label>Portfolio name<input name="name" required maxLength={100} placeholder="e.g. Long-term holdings" aria-describedby="portfolio-name-help" /></label><p id="portfolio-name-help" className="field-hint">1–100 characters. Base currency is fixed to USD.</p></>}
       {intent.kind === "position" && <>
         <label>Asset type<select name="assetType" value={assetType} onChange={(event) => setAssetType(event.target.value)}><option value="STOCK">Stock</option><option value="CRYPTO">Crypto</option><option value="CASH">Cash</option></select></label>
         <label>Position name<input name="label" required maxLength={160} placeholder="A name you recognise" /></label>
@@ -127,7 +148,7 @@ function MutationForm({ intent, portfolioId, saving, setSaving, close, success }
         <p id="quantity-help" className="field-hint">Enter a quantity greater than zero. Your selected direction determines the adjustment.{cash ? " Cash accepts cents only." : " Cash is not adjusted automatically."}</p>
         <label>Movement occurred at (UTC)<input name="occurredAt" type="datetime-local" required defaultValue={observedAt} /></label>
         <label>Note <span className="optional-label">optional</span><textarea name="note" maxLength={500} rows={3} placeholder="Why are you recording this adjustment?" /></label>
-      </> : <>
+      </> : intent.kind !== "portfolio" && <>
         <label>{cash ? "Fixed unit price (USD)" : "Manual unit price (USD)"}<input key={cash ? "cash-price" : "asset-price"} name="unitPrice" required inputMode="decimal" pattern="[0-9]{1,20}(\.[0-9]{1,8})?" readOnly={cash} defaultValue={cash ? "1" : intent.kind === "price" ? intent.position.unitPrice : ""} aria-describedby="price-help" placeholder="0.00" /></label>
         <p id="price-help" className="field-hint">{cash ? "USD cash always has a unit price of 1." : "Enter a nonnegative price, with up to 8 decimal places."}</p>
         <label>{cash ? "Price confirmed at (UTC)" : "Price observed at (UTC)"}<input name="priceAsOf" type="datetime-local" required defaultValue={observedAt} /></label>
