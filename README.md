@@ -1,8 +1,8 @@
 # Wealth Portfolio Tracker
 
-Talent Syria assessment prototype. **Phase 4 functional scope complete: local checks passed and the user supplied successful real HTTP/PostgreSQL concurrency verification.**
+Talent Syria assessment prototype. **Phase 5 dashboard implemented; live browser/database journey verification is pending. Phase 4 API acceptance passed in the supplied user-terminal run.**
 
-The home page remains a static introduction without fabricated balances. Better Auth demo sign-in/sign-out, session-bound portfolio APIs and server-only Decimal valuation are implemented. The user's updated test:api output verifies the requested access/input/valuation/replay/concurrency assertions; the agent's separate database connection still times out. No full dashboard or AI is implemented. See [API contracts/concurrency/tests](docs/API.md), [authentication setup](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
+The home page remains a static introduction without fabricated balances. Sign-in opens `/portfolios`; portfolio detail shows real session-scoped holdings, asset-type allocation, movement history and manual-price forms. No fake database fallback or AI is implemented. The agent's database connection still times out, so authenticated dashboard verification remains pending. See [dashboard flow and browser checks](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
 
 ## Prerequisites and package manager
 
@@ -25,6 +25,7 @@ Use npm and the single `package-lock.json`; do not generate a second package man
 | tsx | 4.23.15 |
 | Better Auth / Prisma adapter | 1.7.12 |
 | Zod | 4.6.7 |
+| Playwright test (development only) | 1.64.1 |
 
 Next.js and React peer constraints were checked against npm metadata. TypeScript 5.9 keeps this small scaffold on the established compiler API. ESLint 10 was evaluated, but Next.js's bundled React/import/accessibility plugins still declare ESLint 9 peer ranges, producing an invalid dependency tree with 10. ESLint 9.39.5 is pinned for peer compatibility without force/legacy-peer flags. **ESLint 9 is end-of-life** and emits a deprecation warning; revisit the lint stack when the plugins support 10. This is a development-tool limitation, not a runtime feature. Type packages are also pinned in `package.json`.
 
@@ -74,7 +75,9 @@ npm run test:auth
 
 There are now **three** migrations: the original two plus additive `202610240003_auth`. Before applying them, inspect current tables/history again; the user's empty-database result is an earlier snapshot. `db:status` may report pending migrations and return a nonzero exit code; conflicting history or connection errors require diagnosis before proceeding. After applying, all three should be finished with matching local checksums. `db:migrate` uses `prisma migrate deploy`, which needs no shadow database; do not use reset/db push. Run commands individually and stop on errors. See [database safeguards](docs/DATABASE.md).
 
-Once migrations and seed succeed, run `npm run dev`, open `/sign-in`, and use `owner@example.invalid`, `editor@example.invalid`, `viewer@example.invalid` or `other@example.invalid` with your private `DEMO_ACCOUNT_PASSWORD`. `/account` shows a real validated session and a link to the authorized portfolio JSON API; it is not a role switcher. Sign out before signing in as another account. No public registration, OAuth or email setup is required.
+Once migrations and seed succeed, run `npm run dev`, open `/sign-in`, and use `owner@example.invalid`, `editor@example.invalid`, `viewer@example.invalid` or `other@example.invalid` with your private `DEMO_ACCOUNT_PASSWORD`. Sign-in opens your portfolio list. Open a portfolio to inspect its actual role/valuation/history. Owners/Editors can create a zero-balance position, record a movement or update a manual price; Viewer controls are absent and server authorization remains mandatory. `/account` retains identity/sign-out information. Sign out before using another account. No public registration, OAuth or email setup is required.
+
+For phase 5 browser acceptance, run `npm run build` then `npm run test:ui` from the terminal with working database connectivity. It uses real sign-in/forms and its own server plus a new synthetic verification portfolio, without resetting existing holdings. Playwright 1.64.1 is a pinned dev dependency. If neither bundled Chromium nor standard Windows Chrome is available, run `npx playwright install chromium`. Full commands, test-data behavior and verified/unverified distinctions: [DASHBOARD](docs/DASHBOARD.md). No migration or additional runtime UI/state library is needed.
 
 Phase 4 adds GET `.../summary`, GET `.../positions` and PATCH `.../positions/:positionId/valuation`; existing POST positions/movements and position PATCH remain. Position creation now returns 201. Portfolio errors add a stable `code` alongside `error`. Inputs/DTOs and exact session/membership/resource checks are documented in [API](docs/API.md).
 

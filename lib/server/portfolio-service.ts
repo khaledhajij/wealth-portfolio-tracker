@@ -119,6 +119,17 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
         orderBy: [{ occurredAt: "desc" }, { id: "desc" }], take: 100 });
       return rows.map(movementDto);
     },
+    async listPortfolioMovements(portfolioId: string) {
+      const userId = await actor();
+      resourceId.parse(portfolioId);
+      await member(db, userId, portfolioId);
+      const rows = await db.positionMovement.findMany({ where: { portfolioId }, take: 100,
+        orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
+        select: { id: true, positionId: true, signedQuantity: true, occurredAt: true, note: true,
+          position: { select: { label: true, symbol: true, assetType: true } } },
+      });
+      return rows.map((row) => ({ ...movementDto(row), positionId: row.positionId, ...row.position }));
+    },
     async addPosition(portfolioId: string, input: unknown) {
       const userId = await actor();
       resourceId.parse(portfolioId);

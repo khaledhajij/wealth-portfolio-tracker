@@ -1,9 +1,40 @@
 # Status
 
-As of 2026-10-25. Current phase: 4 - COMPLETE for the requested functional scope, based on local agent checks plus the user's supplied real HTTP/PostgreSQL verification output. Agent-side database connectivity remains blocked.
+As of 2026-10-25. Current phase: 5 - dashboard implemented, local/component checks passed; authenticated database-backed UI acceptance PENDING. Phase 4 acceptance remains complete from the supplied user run.
 Assessment deadline: end of 2026-10-25, Damascus time.
 
-## Phase 4 current implementation
+## Phase 5 current implementation and evidence
+
+- Read PLAN/status, repository instruction locations, Git/dependencies and prior services/auth/UI/tests first. Git was clean at phase start; no applicable AGENTS file found. Existing single application, backend authorization/write transactions, auth configuration and migration history preserved. English only; no AI/multilingual/dashboard fake-data mode.
+- Added dynamic Server Component portfolio list/detail, calm responsive shell, actual portfolio/role/total, server-derived asset allocation, positions/manual timestamps and portfolio-wide movement history. New history service independently derives session identity and checks membership; query constrained to portfolioId, latest 100 with selected asset metadata. Existing write endpoints reused. No schema/migration changes.
+- Added small Client interaction provider/native dialog forms for add position, signed movement via direction/amount, and timestamped manual price. Cash is fixed USD/1; no price edit control for cash. Viewer controls absent as UX only, server authorization retained. Success refreshes Server Components via router.refresh; no independent browser totals/optimistic cash calculation. Empty/loading/not-found/unavailable/error/success/pending states, form labels, skip link and focus handling included.
+- Movement retry keys remain stable for unchanged payloads; synchronous submit guard plus disabled controls prevent duplicate clicks. Errors retain inputs and focus an alert; ambiguous-network messaging asks users to inspect history before changing/reopening an adjustment. No record updates/deletions or trade accounting added.
+- Added exact English decimal/UTC formatting and asset-type allocation from the same Decimal valuation values. Additive allocationByAssetType appears in summary. No runtime chart/state/component library added. Installed dev-only @playwright/test 1.64.1 (3 packages) exact-pinned for repeatable real browser verification; prior pending-script warnings remain.
+
+### Phase 5 checks actually executed
+
+| Command/check | Observed result |
+| --- | --- |
+| Source/Git/dependency review; official docs | Next 16.4.3 router/loading, React 19.3 transitions, Playwright APIs/npm metadata consulted. Applied React best-practices and Sites local-only guidance; no registration/publication. |
+| `npm run db:inspect` | Agent network retry timed out; no authenticated DB metadata retrieved. |
+| `npm test` | **35 passed, 0 skipped**: existing authorization/valuation plus grouped allocation, exact decimal display and UTC tests. History reads included in missing-session/nonmember/all-role service checks using labeled doubles. |
+| `npm run typecheck`, `npm run lint`, `npm run build`, `npm ls --depth=0` | Final runs exit 0, valid dependency tree; dynamic /portfolios and /portfolios/[portfolioId] built. Initial duplicate additions were corrected after TypeScript flagged them. Generated ignored preview bundles briefly entered ESLint; explicit tmp/QA ignores fixed that tooling issue. Original server-file line endings restored. |
+| `npm run test:ui` | Exit 1 at **read-only migration preflight**, before its server/browser/fixture/mutation stages. Real authenticated dashboard journey not verified by the agent. |
+| Real production negative-path browser checks, 390px Chrome | Exit 0: anonymous dashboard redirects to sign-in; a synthetic invalid login shows/focuses form error; a child-process-only missing DB setting shows generic dashboard error boundary without a fabricated balance. No page overflow. First probe's global alert selector also matched Next's route announcer; scoped it to the form and reran successfully. Child servers/browser stopped. |
+| Explicitly labeled synthetic component QA, 1440px/390px | Actual dashboard/layout/form components bundled only in ignored tmp harness, with router stub/controlled 400 responses and prominent test-only banner. Visual desktop/mobile inspected; Viewer has 0 mutation controls, zero/empty state correct; initial modal focus, required-field focus, pending disabled controls, retained values/error focus, Escape return focus and unchanged retry key across 2 attempts checked. Corrected mobile page overflow from offscreen table header; positioned scroll container now contains it. Dialog within viewport. These are **component UX checks, not database/auth/successful-refresh acceptance**. |
+| Browser secret scan | 16 built browser JS bundles checked against configured DATABASE_URL, BETTER_AUTH_SECRET and DEMO_ACCOUNT_PASSWORD values: no matches. Env/CA/temp/QA artifacts ignored. |
+
+### Scope, remaining gates and changed files
+
+- Run `npm run build` then `npm run test:ui` from the working database terminal. It uses actual sign-in/services/forms, its own local server, an isolated synthetic portfolio, Owner/Editor/Viewer/nonmember checks and 390px touch emulation. Fixtures remain as append-only synthetic audit history. See DASHBOARD.md for browser prerequisites/setup. No migration/password reset required for phase 5.
+- Successful authenticated reads/commits/refresh, actual mobile editor/viewer journey and live logout have not passed in the agent environment. Prior phase 4 API acceptance is not relabeled as phase 5 UI verification. Safari/Firefox/physical device/full accessibility audit untested. Do not mark phase 5 fully accepted until the real journey runs.
+- Existing auth rate-limit/rememberMe and runtime DB privilege/Data API limitations remain documented; no auth behavior changed. No deployment, remote repository, email, real personal data, AI, membership management or next-phase work.
+- Source: app/portfolios/** (layout/list/detail/view/actions/loading/error/not-found/private-read helper), app/globals.css, app/layout.tsx, app/page.tsx, app/sign-in/page.tsx and sign-in-form.tsx, app/account/page.tsx and sign-out-button.tsx; lib/portfolio-display.ts; lib/server/valuation.ts and portfolio-service.ts; tests/display.test.ts plus access/valuation tests; scripts/verify-ui.ts; package.json/package-lock.json and eslint.config.mjs.
+- Docs: README.md, PLAN.md, docs/API.md, docs/DASHBOARD.md, docs/STATUS.md, docs/AI_USAGE.md. Ignored tmp/ui-preview helpers/screenshots are test artifacts only and not application routes. Preview helper stopped by verified PID after Ctrl+C did not stop its child; no developer server was terminated. No commit created.
+
+Final phase 5 review: 32 authored source/document/config files passed whitespace/local-link checks; exact direct pins match lock entries; Git diff check passes. Schema/migrations/auth settings/env example have no diff. A final script-only hosted-transaction timeout adjustment passed typecheck/lint. Long inline shell check pipelines stalled and were interrupted; the same nonmutating file check succeeded as an ignored .mjs helper. No new database success inferred.
+
+## Phase 4 implementation snapshot (historical)
 
 ### Final user-terminal acceptance evidence
 

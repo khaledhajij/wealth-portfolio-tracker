@@ -1,0 +1,12 @@
+import { portfolios } from "@/lib/server/portfolios";
+import { privateRead } from "../server-data";
+import { DashboardView } from "./dashboard-view";
+export const dynamic = "force-dynamic";
+
+export default async function PortfolioPage({ params }: { params: Promise<{ portfolioId: string }> }) {
+  const { portfolioId } = await params;
+  const [portfolio, history] = await privateRead(() => Promise.all([
+    portfolios().getPortfolio(portfolioId), portfolios().listPortfolioMovements(portfolioId),
+  ]));
+  return <DashboardView portfolio={portfolio} history={history} />;
+}

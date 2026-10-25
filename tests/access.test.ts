@@ -69,6 +69,7 @@ test("missing session rejects every service operation before database access", a
   const operations = [
     () => f.service.listPortfolios(), () => f.service.getPortfolio("portfolio-a"),
     () => f.service.getSummary("portfolio-a"), () => f.service.listPositions("portfolio-a"),
+    () => f.service.listPortfolioMovements("portfolio-a"),
     () => f.service.getPosition("portfolio-a", "position-a"), () => f.service.listMovements("portfolio-a", "position-a"),
     () => f.service.addPosition("portfolio-a", input), () => f.service.recordMovement("portfolio-a", "position-a", movement),
     () => f.service.updatePrice("portfolio-a", "position-a", price),
@@ -91,6 +92,7 @@ for (const role of ["OWNER", "EDITOR", "VIEWER"]) {
     assert.deepEqual(Object.keys(listed[0]).sort(), ["assetType", "id", "label", "portfolioId", "priceAsOf", "quantity", "symbol", "unitPrice", "value"]);
     assert.equal((await f.service.getPosition("portfolio-a", "position-a")).unitPrice, "50");
     assert.deepEqual(await f.service.listMovements("portfolio-a", "position-a"), []);
+    assert.deepEqual(await f.service.listPortfolioMovements("portfolio-a"), []);
   });
 }
 
@@ -108,6 +110,7 @@ test("nonmembers and unknown roles are denied for reads and writes", async () =>
     await assert.rejects(f.service.getPortfolio("portfolio-a"), status(404));
     await assert.rejects(f.service.getSummary("portfolio-a"), status(404));
     await assert.rejects(f.service.listPositions("portfolio-a"), status(404));
+    await assert.rejects(f.service.listPortfolioMovements("portfolio-a"), status(404));
     await assert.rejects(f.service.getPosition("portfolio-a", "position-a"), status(404));
     await assert.rejects(f.service.listMovements("portfolio-a", "position-a"), status(404));
     await assert.rejects(f.service.addPosition("portfolio-a", input), status(404));
@@ -220,6 +223,7 @@ test("empty summary/list have explicit zero values without fabricated positions"
   const f = fixture(); f.setEmpty();
   assert.deepEqual(await f.service.getSummary("portfolio-a"), {
     portfolioId: "portfolio-a", currency: "USD", totalValue: "0", displayTotal: "0.00", positions: [],
+    allocationByAssetType: ["STOCK", "CRYPTO", "CASH"].map((assetType) => ({ assetType, value: "0", allocationPercent: "0" })),
   });
   assert.deepEqual(await f.service.listPositions("portfolio-a"), []);
 });

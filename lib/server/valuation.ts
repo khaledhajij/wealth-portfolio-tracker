@@ -51,6 +51,11 @@ export function calculateValuation(positions: readonly ValuationPosition[]) {
     currency: "USD" as const,
     totalValue: total.toFixed(),
     displayTotal: total.toFixed(2),
+    allocationByAssetType: (["STOCK", "CRYPTO", "CASH"] as const).map((assetType) => {
+      const value = values.filter((entry) => entry.position.assetType === assetType)
+        .reduce((sum, entry) => sum.plus(entry.value), new Decimal("0"));
+      return { assetType, value: value.toFixed(), allocationPercent: total.isZero() ? "0" : value.dividedBy(total).times("100").toFixed(4) };
+    }),
     positions: values.map(({ position, price, quantity, value }) => ({
       id: position.id,
       quantity: quantity.toFixed(),

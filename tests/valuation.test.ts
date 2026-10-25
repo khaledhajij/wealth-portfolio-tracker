@@ -42,8 +42,22 @@ test("large decimal products exceed binary float and default Decimal precision s
 });
 
 test("empty portfolio and zero-balance allocation are defined", () => {
-  assert.deepEqual(calculateValuation([]), { currency: "USD", totalValue: "0", displayTotal: "0.00", positions: [] });
+  assert.deepEqual(calculateValuation([]), { currency: "USD", totalValue: "0", displayTotal: "0.00", positions: [],
+    allocationByAssetType: ["STOCK", "CRYPTO", "CASH"].map((assetType) => ({ assetType, value: "0", allocationPercent: "0" })),
+  });
   assert.equal(calculateValuation([stock("50", ["2", "-2"])]).positions[0].allocationPercent, "0");
+});
+
+test("allocation groups multiple positions by asset type using the same unrounded total", () => {
+  const result = calculateValuation([stock("50", ["10"]), { ...stock("20", ["5"]), id: "stock-two" },
+    { ...stock("800", ["0.25"]), id: "crypto", assetType: "CRYPTO" },
+    { ...stock("1", ["200"]), id: "cash", assetType: "CASH" }]);
+  assert.equal(result.totalValue, "1000");
+  assert.deepEqual(result.allocationByAssetType, [
+    { assetType: "STOCK", value: "600", allocationPercent: "60.0000" },
+    { assetType: "CRYPTO", value: "200", allocationPercent: "20.0000" },
+    { assetType: "CASH", value: "200", allocationPercent: "20.0000" },
+  ]);
 });
 
 test("round USD only after adding unrounded position values, half-up", () => {

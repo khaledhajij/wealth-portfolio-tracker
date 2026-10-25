@@ -4,6 +4,8 @@ Implemented in the existing single Next.js 16.4.3 application, using Prisma 7.10
 
 ## Routes and DTOs
 
+Phase 5 adds allocationByAssetType to the shared valuation/summary result (assetType, exact value and percentage, including explicit zero groups). The dashboard also calls a new server-only portfolio-history reader with the same membership policy; no additional public history route or mutation was introduced. Phase 4 acceptance below describes the earlier user-verified API run; phase 5 UI evidence is separate in DASHBOARD.md.
+
 | Method and path | Result | Success status |
 | --- | --- | --- |
 | GET `/api/portfolios/:portfolioId/summary` | `{ portfolioId, currency, totalValue, displayTotal, positions }`; each valuation position has id, movement-derived quantity, unitPrice, priceAsOf, value and allocationPercent | 200 |

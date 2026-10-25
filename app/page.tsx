@@ -6,12 +6,12 @@ export default function Home() {
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-stone-300 py-7">
         <p className="text-sm font-bold tracking-wide">WEALTH / PORTFOLIO TRACKER</p>
         <span className="rounded-full border border-emerald-900/20 px-3 py-1 text-xs font-semibold">
-          Phase 3 · Prototype
+          Phase 5 · Prototype
         </span>
       </header>
 
       <main id="main-content" className="flex-1 py-14 sm:py-20">
-        <Link href="/sign-in" className="mb-6 inline-block rounded border border-emerald-900 px-4 py-2">Demo account sign in</Link>
+        <Link href="/portfolios" className="mb-6 inline-block rounded border border-emerald-900 px-4 py-2">Open your portfolios</Link>
         <p className="text-xs font-bold tracking-[0.18em] text-emerald-800 uppercase">
           Talent Syria technical assessment
         </p>
@@ -33,8 +33,8 @@ export default function Home() {
           <p className="mt-4 max-w-2xl leading-7 text-stone-600">
             This introduction displays no portfolio balances or prices. Demo
             sign-in requires the configured database, migrations and seeded
-            credentials. Dashboard screens and the read-only AI assistant are
-            planned for later phases.
+            credentials. The dashboard supports recorded holdings and manual
+            prices. The read-only AI assistant remains planned for a later phase.
           </p>
           <a href="#planned-features" className="mt-6 inline-flex rounded-lg bg-emerald-950 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-800">
             Explore the planned scope <span aria-hidden="true" className="ml-3">↓</span>
@@ -43,8 +43,8 @@ export default function Home() {
 
         <section id="planned-features" aria-labelledby="scope-heading" className="mt-12 scroll-mt-8">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="scope-heading" className="text-xl font-semibold">Planned scope</h2>
-            <p className="text-sm text-stone-600">Interface and assistant work remains</p>
+            <h2 id="scope-heading" className="text-xl font-semibold">Prototype scope</h2>
+            <p className="text-sm text-stone-600">The assistant remains planned</p>
           </div>
           <dl className="mt-6 grid gap-6 sm:grid-cols-3">
             <div className="border-t border-stone-300 pt-5">
@@ -62,7 +62,7 @@ export default function Home() {
               </dd>
             </div>
             <div className="border-t border-stone-300 pt-5">
-              <dt className="font-semibold">A read-only assistant</dt>
+              <dt className="font-semibold">Planned: a read-only assistant</dt>
               <dd className="mt-2 text-sm leading-6 text-stone-600">
                 Answers grounded in authorized portfolio data, without changing
                 holdings or prices.

@@ -23,6 +23,7 @@
     "test": "prisma generate && node --conditions=react-server --import tsx --test tests/*.test.ts",
     "test:auth": "prisma generate && node --conditions=react-server --import tsx scripts/verify-auth.ts",
     "test:api": "prisma generate && node --conditions=react-server --import tsx scripts/verify-api.ts",
+    "test:ui": "prisma generate && node --conditions=react-server --import tsx scripts/verify-ui.ts",
     "auth:setup": "node --import tsx scripts/setup-auth.ts",
     "test:db": "prisma generate && node --conditions=react-server --import tsx scripts/verify-db.ts"
   },
@@ -40,6 +41,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.2",
     "@types/pg": "8.23.1",
