@@ -82,6 +82,12 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
     return row;
   }
   return {
+    async authorizePortfolioRead(portfolioId: string) {
+      const userId = await actor();
+      resourceId.parse(portfolioId);
+      await member(db, userId, portfolioId);
+      return Object.freeze({ userId, portfolioId });
+    },
     async createPortfolio(input: unknown) {
       // Creation has no preexisting portfolio role: every authenticated user may
       // own a new portfolio, including a Viewer in a different portfolio.

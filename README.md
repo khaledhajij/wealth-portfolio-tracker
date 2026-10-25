@@ -1,10 +1,10 @@
 # Wealth Portfolio Tracker
 
-Talent Syria assessment prototype. **Phase 5.5 portfolio creation and phase 5 dashboard implemented; live database/browser acceptance is pending. Phase 4 API acceptance passed in the supplied user-terminal run.**
+Talent Syria assessment prototype. **Phase 6 read-only streaming assistant implemented locally; live-provider and fresh authenticated database/browser acceptance are pending. Phase 4 API acceptance passed in the supplied user-terminal run.**
 
 Authenticated users can create an empty USD portfolio from `/portfolios`. Each creation atomically adds that user's Owner membership; being a Viewer elsewhere does not restrict this. No new migration or seed is required. Run `npm run build` then `npm run test:ui` from a database-connected terminal to verify creation/rollback/isolation and the dashboard journey; current agent results are in STATUS.
 
-The home page redirects to `/portfolios`, which uses the existing session-protected dashboard and sends signed-out users to `/sign-in`. Sign-in opens `/portfolios`; portfolio detail shows real session-scoped holdings, asset-type allocation, movement history and manual-price forms. No fake database fallback or AI is implemented. The agent's database connection still times out, so authenticated dashboard verification remains pending. See [dashboard flow and browser checks](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
+The home page redirects to `/portfolios`, which uses the existing session-protected dashboard and sends signed-out users to `/sign-in`. Portfolio detail shows session-scoped holdings, allocation, movement history and manual-price forms. Its assistant is disabled unless server AI configuration is present; no canned AI or database fallback. See [assistant setup/limits/evidence](docs/ASSISTANT.md), [dashboard](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
 
 ## Prerequisites and package manager
 
@@ -27,6 +27,7 @@ Use npm and the single `package-lock.json`; do not generate a second package man
 | tsx | 4.23.15 |
 | Better Auth / Prisma adapter | 1.7.12 |
 | Zod | 4.6.7 |
+| AI SDK / React / Google adapter | 7.0.153 / 4.0.157 / 4.0.105 |
 | Playwright test (development only) | 1.64.1 |
 
 Next.js and React peer constraints were checked against npm metadata. TypeScript 5.9 keeps this small scaffold on the established compiler API. ESLint 10 was evaluated, but Next.js's bundled React/import/accessibility plugins still declare ESLint 9 peer ranges, producing an invalid dependency tree with 10. ESLint 9.39.5 is pinned for peer compatibility without force/legacy-peer flags. **ESLint 9 is end-of-life** and emits a deprecation warning; revisit the lint stack when the plugins support 10. This is a development-tool limitation, not a runtime feature. Type packages are also pinned in `package.json`.
@@ -55,10 +56,10 @@ Copy-Item .env.example .env.local
 - `BETTER_AUTH_SECRET`: random server secret of at least 32 characters; `npm run auth:setup` generates it locally if missing.
 - `BETTER_AUTH_URL`: exact application origin, normally `http://localhost:3000` for local development. Non-loopback environments require HTTPS and Secure cookies.
 - `DEMO_ACCOUNT_PASSWORD`: private 12-128-character password used to seed the four synthetic accounts. `auth:setup` generates a random value if missing; read it privately in `.env.local`, never paste it into chat or commit it. Existing credentials are preserved, not reset by seed.
-- `OPENAI_API_KEY`: reserved for a proposed direct OpenAI provider through Vercel AI SDK, subject to the AI phase's provider review.
-- `AI_MODEL`: application-defined model identifier, to be validated/consumed in the AI phase. No model or default is selected yet.
+- `GOOGLE_GENERATIVE_AI_API_KEY`: private Gemini Developer API key created in [Google AI Studio](https://aistudio.google.com/apikey), used through Vercel AI SDK's direct Google adapter. No AI Gateway or key sent to the browser. The old OPENAI_API_KEY is no longer read.
+- `AI_MODEL`: explicit tool/streaming-capable model available in your API project; no implicit model is selected. Both AI values are needed to enable the assistant; restart after changes. Configuration does not prove live availability. Use synthetic demo data only.
 
-All template values are empty. Prisma config/scripts use Next's environment loader to respect `.env.local`. No AI SDK/provider package is installed yet. These names are server-only: never add `NEXT_PUBLIC_` to credentials. `.gitignore` excludes `.env*` except `.env.example`, generated Prisma/build output, local logs and dependencies. Keep actual credentials out of Git and browser code.
+All template values are empty. Prisma config/scripts use Next's environment loader to respect `.env.local`. These names are server-only: never add `NEXT_PUBLIC_` to credentials. `.gitignore` excludes `.env*` except `.env.example`, generated Prisma/build output, local logs and dependencies. Keep actual credentials out of Git and browser code. Chat setup, read-tool contracts, limits, cancellation and unverified live checks are documented in [ASSISTANT](docs/ASSISTANT.md).
 
 Supabase is configured privately in `.env.local`. The user-terminal inspector now reports an authenticated PostgreSQL **17.11** session, empty `public` tables and no Prisma migration history. The agent's separate connection still times out. Phase 2 is **not complete**: migration application, seed repeatability and database acceptance have not been verified. From the terminal where inspection succeeds, run the following commands individually, stopping on any unexpected failure or conflicting migration state:
 
@@ -118,7 +119,7 @@ The first three references described Next.js 16.4.3 / Tailwind 4.3 when reviewed
 - [Next.js TypeScript](https://nextjs.org/docs/app/api-reference/config/typescript)
 - [Next.js environment variables](https://nextjs.org/docs/app/guides/environment-variables)
 - [Next.js file-based app icons](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/app-icons)
-- [AI SDK OpenAI provider configuration](https://ai-sdk.dev/providers/ai-sdk-providers/openai) (environment naming only; SDK integration is deferred)
+- [AI SDK Google provider configuration](https://ai-sdk.dev/providers/ai-sdk-providers/google), [Google API key setup](https://ai.google.dev/gemini-api/docs/api-key); version-specific streaming/UI/testing references in [ASSISTANT](docs/ASSISTANT.md).
 - [ESLint release support](https://eslint.org/version-support/) (ESLint 9 lifecycle limitation)
 - Prisma 7/PostgreSQL references and schema/seed limitations are listed in [database notes](docs/DATABASE.md).
 - Better Auth 1.7.12 official integration/schema/security documentation and installed-source checks are recorded in [AUTH](docs/AUTH.md).

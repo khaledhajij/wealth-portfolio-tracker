@@ -1,5 +1,7 @@
 # Phase 4 portfolio API
 
+Phase 6 adds POST `/api/chat`: strict `{ portfolioId, message }`, trusted session and selected membership checked before provider construction. Same-origin JSON, actual 8 KiB body cap, private/no-store and safe errors retained. The successful response is an AI SDK UI SSE stream, not JSON; pre-stream failures use the existing JSON error contract (401 session, 404 nonmember, 400 invalid fields, 403 Origin, 503 missing AI configuration). Tools have no model-supplied scope/identity arguments and recheck the same services on each execution. Contracts, cancellation/time/token/read limits and test boundaries: [ASSISTANT](ASSISTANT.md). Existing portfolio endpoints remain unchanged.
+
 Implemented in the existing single Next.js 16.4.3 application, using Prisma 7.10.1/PostgreSQL and Zod 4.6.7. No UI, AI, dependency or schema/migration changes in this phase. Existing phase 3 services/routes are reused.
 
 ## Routes and DTOs

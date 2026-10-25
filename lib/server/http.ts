@@ -16,23 +16,27 @@ export async function api(operation: () => Promise<unknown>, successStatus = 200
     return privateJson({ code: "UNAVAILABLE", error: "Service unavailable. Check server configuration and database connectivity." }, 503);
   }
 }
-export async function mutationBody(request: Request) {
+export async function mutationBody(request: Request, signal?: AbortSignal) {
   const origin = request.headers.get("origin");
   if (origin !== authSettings().baseURL) throw new ServiceError(403, "Same-origin request required.");
   if (request.headers.get("content-type")?.split(";")[0] !== "application/json") throw new ServiceError(400, "JSON required.");
   // Bound the actual streamed body, not only the caller-controlled Content-Length.
   const reader = request.body?.getReader();
   if (!reader) throw new ServiceError(400, "JSON body required.");
+  const cancel = () => { void reader.cancel().catch(() => {}); };
+  signal?.addEventListener("abort", cancel, { once: true });
   let size = 0;
   const chunks: Uint8Array[] = [];
   try {
+    if (signal?.aborted) throw new ServiceError(400, "Request stopped or timed out.");
     while (true) {
       const { done, value } = await reader.read();
+      if (signal?.aborted) throw new ServiceError(400, "Request stopped or timed out.");
       if (done) break;
       size += value.byteLength;
       if (size > 8192) { await reader.cancel(); throw new ServiceError(400, "Request too large."); }
       chunks.push(value);
     }
-  } finally { reader.releaseLock(); }
+  } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
   return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
 }

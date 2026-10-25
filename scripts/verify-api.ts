@@ -7,7 +7,11 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { createDatabaseClient } from "../lib/server/db";
 import type { PrismaClient } from "../generated/prisma/client";
-import type { createPortfolioService } from "../lib/server/portfolio-service";
+import { createPortfolioService } from "../lib/server/portfolio-service";
+import { createReadTools } from "../lib/server/assistant-tools";
+import { createAuth } from "../lib/server/auth";
+import { ServiceError } from "../lib/server/service-error";
+import { positionsOutput, summaryOutput } from "../lib/chat-contracts";
 import { demoPassword } from "../prisma/seed-auth";
 import { seedUsers } from "../prisma/seed-data";
 
@@ -39,7 +43,8 @@ async function startServer(applicationName: string) {
   url.searchParams.set("application_name", applicationName);
   // Secrets travel only through the child environment, never command-line/log output.
   server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "--hostname", "127.0.0.1", "--port", String(port)], {
-    env: { ...process.env, NODE_ENV: "production", BETTER_AUTH_URL: origin, DATABASE_URL: url.toString() },
+    // This regression verifier must never contact or charge a model provider.
+    env: { ...process.env, NODE_ENV: "production", BETTER_AUTH_URL: origin, DATABASE_URL: url.toString(), GOOGLE_GENERATIVE_AI_API_KEY: "", AI_MODEL: "" },
     stdio: "ignore", windowsHide: true,
   });
   let spawnFailed = false;
@@ -157,6 +162,18 @@ async function verify(db: PrismaClient) {
   assert.equal(malformed.status, 400);
   console.log("PASS: HTTP session/role/nonmember/resource isolation, sanitized errors, invalid input and origin checks");
 
+  stage = "chat HTTP authorization before provider configuration";
+  const question = { portfolioId, message: "Summarize this portfolio" };
+  await call("/api/chat", "POST", "", question, 401);
+  await call("/api/chat", "POST", other, question, 404);
+  for (const cookie of [owner, editor, viewer]) await call("/api/chat", "POST", cookie, question, 503);
+  for (const field of ["userId", "role", "messages", "tools"]) {
+    await call("/api/chat", "POST", owner, { ...question, [field]: "untrusted" }, 400);
+  }
+  await call("/api/chat", "POST", owner, { ...question, message: "x".repeat(2001) }, 400);
+  await call("/api/chat", "POST", viewer, { ...question, portfolioId: foreignId }, 404);
+  console.log("PASS: chat session/membership/scope/input gates and explicit disabled-provider response; no provider contacted");
+
   stage = "Decimal valuations and duplicate requests over HTTP";
   const opening = await call<Movement>(`${stockPath}/movements`, "POST", owner, movementBody);
   assert.deepEqual(await call(`${stockPath}/movements`, "POST", owner, movementBody), opening);
@@ -184,6 +201,26 @@ async function verify(db: PrismaClient) {
   for (const signedQuantity of ["0.1", "0.2"]) await call(`${base}/positions/${fraction.id}/movements`, "POST", owner, { ...movementBody, signedQuantity, requestKey: randomUUID() });
   assert.equal((await call<PositionList>(`${base}/positions`, "GET", viewer)).find((row) => row.id === fraction.id)?.value, "0.03");
   console.log("PASS: 600 -> 700, unchanged cash, exact fractions, request-key replay/conflict and server-derived actors");
+
+  stage = "real-session secured AI read tools on synthetic PostgreSQL fixtures";
+  const auth = createAuth(db, { ...process.env, BETTER_AUTH_URL: origin });
+  const readService = createPortfolioService(db, async () => {
+    const session = await auth.api.getSession({ headers: new Headers({ Cookie: viewer }), query: { disableCookieCache: true } });
+    if (!session || session.session.expiresAt <= new Date()) throw new ServiceError(401, "Sign in required.");
+    return { id: session.user.id };
+  });
+  const context = await readService.authorizePortfolioRead(portfolioId);
+  const tools = createReadTools(readService, context, new AbortController().signal);
+  const options = { toolCallId: "synthetic-db-check", messages: [], context: {} };
+  const toolSummary = summaryOutput.parse(await tools.getPortfolioSummary.execute!({}, options));
+  assert.equal(toolSummary.totalValue, "700.03");
+  assert.equal(toolSummary.manualPriceWindow.oldest, observedAt);
+  const toolPositions = positionsOutput.parse(await tools.listPositions.execute!({}, options));
+  assert.equal(toolPositions.positions.find((row) => row.symbol === "TEST")?.quantity, "12");
+  assert.equal(toolPositions.positions.find((row) => row.symbol === "USD")?.quantity, "100");
+  await assert.rejects(async () => tools.listPositions.execute!({ portfolioId: foreignId, role: "OWNER" } as unknown as Record<string, never>, options));
+  await assert.rejects(readService.authorizePortfolioRead(foreignId));
+  console.log("PASS: real-session AI tools reuse secured Decimal services, exact 700.03/timestamps and reject foreign scope; no provider contacted");
 
   stage = "concurrency fixture setup";
   const race = await call<Position>(`${base}/positions`, "POST", owner, { ...positionBody, symbol: "RACE", unitPrice: "1" }, 201);
