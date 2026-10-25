@@ -214,6 +214,17 @@ try {
   await check(owner.getByRole("heading", { name, exact: true })).toBeVisible();
   await check(owner.getByTestId("portfolio-total")).toHaveText("$0.00");
   await check(owner.getByRole("heading", { name: "A clear starting point" })).toBeVisible();
+  // Presentation-only popup checks; opening must not require a model call.
+  const assistantLauncher = owner.getByRole("button", { name: "Ask AI Read-only", exact: true });
+  await assistantLauncher.click();
+  const assistantPopup = owner.getByRole("dialog", { name: "Wealth assistant", exact: true });
+  await check(assistantPopup.getByText(name, { exact: true })).toBeVisible();
+  await check(assistantPopup.getByText("No conversation yet", { exact: true })).toBeVisible();
+  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || !process.env.AI_MODEL?.trim()) {
+    await check(assistantPopup.getByLabel("Your question")).toBeDisabled();
+  }
+  await owner.keyboard.press("Escape");
+  await check(assistantLauncher).toBeFocused();
   await owner.getByRole("button", { name: "Add position", exact: true }).first().click();
   await owner.getByRole("button", { name: "Create position", exact: true }).click();
   await check(owner.getByLabel("Position name")).toBeFocused();

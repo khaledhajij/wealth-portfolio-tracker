@@ -10,5 +10,5 @@ export default async function PortfolioPage({ params }: { params: Promise<{ port
   const [portfolio, history] = await privateRead(() => Promise.all([
     portfolios().getPortfolio(portfolioId), portfolios().listPortfolioMovements(portfolioId),
   ]));
-  return <><DashboardView portfolio={portfolio} history={history} /><PortfolioAssistant key={portfolio.id} portfolioId={portfolio.id} availability={assistantAvailability()} /></>;
+  return <><DashboardView portfolio={portfolio} history={history} /><PortfolioAssistant key={portfolio.id} portfolioId={portfolio.id} portfolioName={portfolio.name} availability={assistantAvailability()} /></>;
 }

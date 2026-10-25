@@ -3,6 +3,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { MessageCircle, RotateCcw, Send, Square } from "lucide-react";
+import { ChatMessages } from "@/components/ui/chat-messages";
 import { CHAT_LIMITS, type PositionsOutput, type SummaryOutput } from "@/lib/chat-contracts";
 import { assetName, usd, utcTime } from "@/lib/portfolio-display";
 
@@ -11,12 +13,15 @@ type Message = UIMessage<unknown, Record<string, never>, {
   listPositions: { input: Record<string, never>; output: PositionsOutput };
 }>;
 
-export function PortfolioAssistant({ portfolioId, availability }: { portfolioId: string; availability: { enabled: boolean; message: string } }) {
+export function PortfolioAssistant({ portfolioId, portfolioName, availability }: { portfolioId: string; portfolioName: string; availability: { enabled: boolean; message: string } }) {
+  const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [notice, setNotice] = useState("");
   const draft = useRef("");
   const pending = useRef(false);
   const errorBox = useRef<HTMLDivElement>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const launcher = useRef<HTMLButtonElement>(null);
   const [transport] = useState(() => new DefaultChatTransport<Message>({
     api: "/api/chat", credentials: "same-origin",
     prepareSendMessagesRequest: ({ messages }) => {
@@ -34,8 +39,20 @@ export function PortfolioAssistant({ portfolioId, availability }: { portfolioId:
   });
   const busy = status === "submitted" || status === "streaming";
   const full = messages.filter((message) => message.role === "user").length >= 6;
-  useEffect(() => { if (error) errorBox.current?.focus(); }, [error]);
+  useEffect(() => { if (error && open && dialog.current?.open) errorBox.current?.focus(); }, [error, open]);
   useEffect(() => () => { void stop(); }, [stop]);
+
+  function openChat() {
+    dialog.current?.showModal(); setOpen(true);
+    const target = dialog.current?.querySelector<HTMLElement>("textarea:not(:disabled)")
+      ?? dialog.current?.querySelector<HTMLElement>("button");
+    target?.focus();
+  }
+  function closeChat() {
+    if (busy || pending.current) { setInput(draft.current); setNotice("Response stopped. Partial content may be incomplete."); }
+    void stop();
+    dialog.current?.close();
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -45,13 +62,20 @@ export function PortfolioAssistant({ portfolioId, availability }: { portfolioId:
     try { await sendMessage({ text: question }); }
     finally { pending.current = false; }
   }
-  return <section className="assistant-panel data-section" aria-labelledby="assistant-heading">
-    <div className="section-heading"><div><p className="eyebrow">READ-ONLY ASSISTANT</p><h2 id="assistant-heading">Ask about this portfolio</h2></div><span className="prototype-tag">Prototype</span></div>
-    <p className="assistant-description">Review recorded holdings and manual USD valuations. Use synthetic demo data only. No changes, live prices or trading recommendations. Each question stands alone; switching portfolios clears this conversation.</p>
-    <p className="field-hint">{availability.message}</p>
-    {messages.length > 0 && <ol className="assistant-messages" aria-label="Portfolio conversation">{messages.map((message) => <li key={message.id} className={`assistant-message assistant-${message.role}`}>
-      <strong>{message.role === "user" ? "You" : "Assistant"}</strong>
-      {message.parts.map((part, index) => {
+  return <>
+    <button ref={launcher} type="button" className="assistant-launcher" aria-haspopup="dialog" aria-expanded={open} aria-controls="portfolio-assistant-popup" onClick={openChat}><MessageCircle size={20} aria-hidden="true" /><span>Ask AI</span><span className="assistant-launcher-badge">Read-only</span></button>
+    <dialog ref={dialog} id="portfolio-assistant-popup" className="chat-popup" aria-labelledby="assistant-heading" aria-describedby="assistant-portfolio assistant-context"
+      onKeyDown={(event) => {
+        if (event.key !== "Tab") return;
+        const controls = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]');
+        const first = controls?.[0]; const last = controls?.[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+      }}
+      onCancel={(event) => { event.preventDefault(); closeChat(); }} onClose={() => { setOpen(false); launcher.current?.focus(); }}>
+    <ChatMessages portfolioName={portfolioName} pending={busy} onClose={closeChat}
+      context={<><p>Manual USD valuations · Prototype</p><p className="field-hint">{availability.message}</p></>}
+      messages={messages.map((message) => ({ id: message.id, sender: message.role === "user" ? "user" : "assistant", content: message.parts.map((part, index) => {
         if (part.type === "text") return <p className="assistant-text" key={index}>{part.text}</p>;
         if (part.type === "tool-getPortfolioSummary" || part.type === "tool-listPositions") {
           const name = part.type === "tool-getPortfolioSummary" ? "Portfolio summary" : "Positions";
@@ -60,20 +84,22 @@ export function PortfolioAssistant({ portfolioId, availability }: { portfolioId:
           return <p key={index} className="assistant-tool-status" role="status">{part.state === "output-error" || part.state === "output-denied" ? `${name} unavailable. Access may have changed.` : `Reading ${name.toLowerCase()}…`}</p>;
         }
         return null;
-      })}
-    </li>)}</ol>}
+      }) }))}>
     {error && <div ref={errorBox} role="alert" tabIndex={-1} className="form-error"><p>The assistant could not complete this response. Your question is kept below. Check your session or try a shorter question; partial content may be incomplete.</p><Link href="/sign-in" className="text-link">Sign in again</Link></div>}
     <p role="status" className="assistant-status">{busy ? status === "submitted" ? "Waiting for the assistant…" : "Receiving response…" : notice}</p>
     <form onSubmit={submit} className="assistant-form">
-      <label htmlFor="portfolio-question">Your question<textarea id="portfolio-question" name="question" rows={3} required maxLength={CHAT_LIMITS.questionCharacters} value={input} onChange={(event) => setInput(event.target.value)} disabled={!availability.enabled || busy || full} aria-describedby="assistant-question-help" placeholder="What is this portfolio worth at its manual prices?" /></label>
-      <p id="assistant-question-help" className="field-hint">Up to 2,000 characters. Only this question and authorized read-tool results are sent to Google Gemini. Conversations are held in this page, not saved.</p>
+      <label htmlFor="portfolio-question">Your question<textarea id="portfolio-question" name="question" rows={2} required maxLength={CHAT_LIMITS.questionCharacters} value={input} onChange={(event) => setInput(event.target.value)} disabled={!availability.enabled || busy || full} aria-describedby="assistant-question-help" placeholder="What is this portfolio worth at its manual prices?"
+        onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} /></label>
+      <p id="assistant-question-help" className="field-hint">2,000 characters · Enter to send · Shift+Enter for a new line. Questions and authorized tool results go to Google Gemini; chat stays on this page.</p>
       {full && <p className="field-hint">Six questions reached. Clear the conversation to ask another.</p>}
-      <div className="assistant-controls"><button className="button-quiet" type="button" disabled={busy || !messages.length} onClick={() => { setMessages([]); clearError(); setNotice(""); setInput(""); }}>Clear conversation</button>
-        {busy ? <button key="stop" className="button-quiet" type="button" onClick={(event) => { event.preventDefault(); setNotice("Stopping response…"); setInput(draft.current); void stop(); }}>Stop response</button>
-          : <button key="ask" className="button-primary" type="submit" disabled={!availability.enabled || full || !input.trim()}>Ask assistant</button>}</div>
+      <div className="assistant-controls"><button className="chat-secondary-button" type="button" disabled={busy || !messages.length} onClick={() => { setMessages([]); clearError(); setNotice(""); setInput(""); }}><RotateCcw size={13} aria-hidden="true" />Clear conversation</button>
+        {busy ? <button key="stop" className="chat-secondary-button" type="button" onClick={(event) => { event.preventDefault(); setNotice("Stopping response…"); setInput(draft.current); void stop(); }}><Square size={13} aria-hidden="true" />Stop response</button>
+          : <button key="ask" className="chat-send-button" type="submit" disabled={!availability.enabled || full || !input.trim()}><Send size={14} aria-hidden="true" />Ask assistant</button>}</div>
     </form>
-    <p className="field-hint">AI text may be inaccurate. The server results below each tool are the source figures; prices are manually recorded.</p>
-  </section>;
+    <p className="field-hint chat-disclaimer">Use synthetic demo data. Each question stands alone. AI text may be inaccurate; server results and manual timestamps are the source figures.</p>
+    </ChatMessages>
+    </dialog>
+  </>;
 }
 
 function SummaryResult({ result }: { result: SummaryOutput }) {

@@ -23,7 +23,17 @@ npm run build
 npm start
 ```
 
-Open an authorized portfolio; the assistant is below movement history. Provider/model access, cost, data-use terms and limits depend on the Google API project. The former OpenAI-specific store=false option was removed; no equivalent retention guarantee is inferred for Google. The application does not persist chat or enable SDK telemetry. Google-hosted search/code-execution capabilities are not enabled; only the two application read tools are supplied.
+Open an authorized portfolio and use the bottom-right **Ask AI** button. Provider/model access, cost, data-use terms and limits depend on the Google API project. The former OpenAI-specific store=false option was removed; no equivalent retention guarantee is inferred for Google. The application does not persist chat or enable SDK telemetry. Google-hosted search/code-execution capabilities are not enabled; only the two application read tools are supplied.
+
+## Popup presentation
+
+The user supplied a chat component reference and requested a popup. Its dark bubbles, icons, message entrance and real-pending dots are adapted into `components/ui/chat-messages.tsx`; its sample Nexus conversation, timers, autoplay/replay and canned responses are omitted. The component is controlled by actual SDK messages and accepts rendered parts so server source cards/timestamps are preserved. It owns only scroll-follow behavior, not a second conversation or financial state. Users who scroll upward are not forced to the bottom by new chunks.
+
+The app already has TypeScript/Tailwind. Shared presentation now follows the requested `components/ui` convention, and styles remain in `app/globals.css`. That folder separates reusable visuals from the portfolio-specific SDK controller; it is not a Next.js requirement. No Shadcn primitive is required by this custom component, so no CLI initialization/replacement, extra state library, cn utility or unrelated stock imagery was added. Exact runtime pins: `framer-motion` 14.6.0 and `lucide-react` 1.61.0. Named icons and LazyMotion/domAnimation are used; reduced-motion preference disables message movement and repeating dots.
+
+Native modal dialog opens from a floating launcher only on authorized portfolio detail, shows the actual portfolio name/read-only status, and bounds itself to desktop/mobile dynamic viewport sizes. Initial focus goes to the question or Close when disabled. Context/log regions support keyboard scrolling; Tab/Shift+Tab wrap within visible controls, Escape/Close return focus to the launcher. Close stops a pending response and restores the draft; reopening retains this portfolio's local conversation. A portfolio-key change unmounts/stops the old instance and starts closed/empty. Opening alone makes no provider request.
+
+Enter submits, Shift+Enter adds a line, and IME composition is respected. Clear conversation remains a real local reset, not replay. Pending/stream/tool/error/stopped/disabled states and safe plain-text output remain, including the original single-submit guard and distinct Stop/submit buttons. Desktop/mobile component checks use an explicitly labeled synthetic SSE harness; they are not a live provider or authenticated database result. See STATUS for the actual outcomes.
 
 ## Code flow and authorization
 
@@ -74,4 +84,5 @@ For a live check after configuration, sign in to a synthetic demo portfolio and 
 - [AI SDK v7 streamText](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text), [tools](https://ai-sdk.dev/docs/reference/ai-sdk-core/tool), [tool calling](https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling).
 - [useChat](https://ai-sdk.dev/docs/reference/ai-sdk-ui/use-chat), [chatbot](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot), [tool states](https://ai-sdk.dev/docs/ai-sdk-ui/chatbot-tool-usage), [SDK mock testing](https://ai-sdk.dev/docs/ai-sdk-core/testing).
 - [AI SDK v7 Google adapter](https://ai-sdk.dev/providers/ai-sdk-providers/google), including createGoogle, private key header and language-model API; installed 4.0.105 types/source checked.
+- [Motion bundle guidance](https://motion.dev/docs/react-reduce-bundle-size), [reduced motion](https://motion.dev/docs/react-use-reduced-motion), [Lucide React](https://lucide.dev/guide/react), [native dialog](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/dialog) for the supplied popup reference adaptation.
 - [Google API key setup](https://ai.google.dev/gemini-api/docs/api-key), [Google model catalog](https://ai.google.dev/gemini-api/docs/models), [Gemini 3.5 Flash-Lite model capabilities](https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash-lite). No live model access or quota inferred from documentation.

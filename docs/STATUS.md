@@ -1,7 +1,25 @@
 # Status
 
-As of 2026-10-25. Current phase: 6 - Google Gemini read-only streaming assistant implemented locally; disabled by missing Google key/model. Live-provider and fresh authenticated database/browser acceptance PENDING. Phase 5/5.5 real UI/database gates remain pending. Phase 4 acceptance remains complete from the supplied user run.
+As of 2026-10-25. Current phase: 6 - Google Gemini read-only streaming assistant now uses a popup. Safe presence checks show Google key/model configured locally; live-provider and fresh authenticated database/browser acceptance PENDING. Phase 5/5.5 real UI/database gates remain pending. Phase 4 acceptance remains complete from the supplied user run.
 Assessment deadline: end of 2026-10-25, Damascus time.
+
+## Phase 6 popup UI follow-up
+
+- User requested a popup and supplied a React chat reference. Read the attachment, current instructions/PLAN/status/Git/source/dependencies; preserved existing work. The attachment was treated as visual guidance: its demo conversation, artificial response timers/autoplay/replay, unrelated branding and stock-image instruction were not copied into the working assistant. No relevant memory hit, no subagents. Existing React best-practice guidance applied; official Motion/Lucide/native-dialog docs checked.
+- Added controlled `components/ui/chat-messages.tsx`: dark user/assistant bubbles, icons, real-pending dots, reduced-motion behavior and scroll-follow that respects upward scrolling. It renders actual SDK parts/source cards through content slots, with no extra message store or fake defaults. Existing TS/Tailwind retained; requested shared-component directory created, styles in app/globals.css, no Shadcn CLI/scaffold replacement or unnecessary image assets/cn dependency.
+- Native bottom-right dialog from Ask AI launcher on authorized detail only. Shows actual portfolio name/read-only status; viewport-bounded layout, initial focus, keyboard-scrollable context/log, explicit Tab/Shift+Tab wrapping, Escape/Close return focus. Close cancels a pending stream and restores draft, while reopening preserves this portfolio's local messages. Portfolio-key unmount still cancels/resets. Enter sends, Shift+Enter inserts a line, IME composition respected. Missing-key disablement and existing server request/stream/tool/error behavior preserved.
+- Exact pins framer-motion 14.6.0/lucide-react 1.61.0; four packages added including transitive dependencies. Direct peer tree valid; one lockfile, existing script-approval warnings unchanged. Uses LazyMotion/domAnimation and named icons. No backend/auth/AI tool/provider/schema/migration changes in this UI follow-up.
+
+| Check | Actual outcome |
+| --- | --- |
+| `npm test` | Exit 0: **49 passed, 0 skipped**, including existing service isolation, read-only tool scopes, SDK cancellation and Google transport assertions. |
+| `npm run typecheck`, `npm run lint`, `npm run build` | Final checks exit 0. Build includes unchanged dynamic routes and the popup Client UI. Exact new dependency versions listed successfully. |
+| Actual component/SDK + controlled SSE browser QA | Passed 1440x1000, 390x844 and 320x568 Chrome viewports. Tested closed/disabled/empty states, selected name, keyboard focus wrap/return, tool/source streaming with exact 600/UTC fixture, double-submit guard, retained/focused error, Stop, close cancellation/reopen retention, portfolio unmount/reset/scoped transport, Enter/Shift+Enter, no page overflow, contained popup; reduced-motion check at 320px. Desktop/mobile screenshots inspected. Initial keyboard check caught native Tab escaping the document focus cycle; added explicit wrapping and reran all widths. Clearly TEST ONLY synthetic SSE/no DB/no auth/router-stub fixture under ignored tmp; not live Gemini evidence. Own helper server/browser stopped. |
+| Actual production loopback HTTP/Chrome negatives | Exit 0: root/sign-in flow, anonymous/forged chat 401, bad Origin 403, malformed/oversized JSON 400, private/no-store/safe errors and existing portfolio negatives. No provider or database writes. Own process stopped. |
+| Secret/static checks | 13 built browser JS bundles checked against 4 configured database/session/demo/Google secret values: zero matches. Key/model presence now true; no values printed or private env edited by the agent. 45 authored files passed whitespace/local-link/pin-lock checks; new component included. |
+| Real authenticated database UI / live Gemini | Not run in this popup follow-up. Prior database preflight limitation remains. Added basic popup open/portfolio-name/empty/disabled/Escape-focus assertions to scripts/verify-ui.ts for the connected-terminal run; not counted as passed PostgreSQL/browser acceptance. No live provider request attempted. |
+
+Changed files: components/ui/chat-messages.tsx; app/portfolios/[portfolioId]/portfolio-assistant.tsx and page.tsx; app/globals.css; package.json/package-lock.json; scripts/verify-ui.ts; README.md, PLAN.md, docs/ASSISTANT.md, DASHBOARD.md, STATUS.md and AI_USAGE.md. Existing server route/contracts/tools/services/auth/database untouched. No new phase or remote action.
 
 ## Phase 6 provider switch to Google Gemini
 

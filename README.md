@@ -4,7 +4,7 @@ Talent Syria assessment prototype. **Phase 6 read-only streaming assistant imple
 
 Authenticated users can create an empty USD portfolio from `/portfolios`. Each creation atomically adds that user's Owner membership; being a Viewer elsewhere does not restrict this. No new migration or seed is required. Run `npm run build` then `npm run test:ui` from a database-connected terminal to verify creation/rollback/isolation and the dashboard journey; current agent results are in STATUS.
 
-The home page redirects to `/portfolios`, which uses the existing session-protected dashboard and sends signed-out users to `/sign-in`. Portfolio detail shows session-scoped holdings, allocation, movement history and manual-price forms. Its assistant is disabled unless server AI configuration is present; no canned AI or database fallback. See [assistant setup/limits/evidence](docs/ASSISTANT.md), [dashboard](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
+The home page redirects to `/portfolios`, which uses the existing session-protected dashboard and sends signed-out users to `/sign-in`. Portfolio detail shows session-scoped holdings, allocation, movement history and manual-price forms. Use the bottom-right **Ask AI** button to open its portfolio-scoped popup; missing server AI configuration disables sending. No canned AI or database fallback. See [assistant setup/limits/evidence](docs/ASSISTANT.md), [dashboard](docs/DASHBOARD.md), [API](docs/API.md), [authentication](docs/AUTH.md), [PLAN](PLAN.md), [STATUS](docs/STATUS.md), and [AI usage](docs/AI_USAGE.md).
 
 ## Prerequisites and package manager
 
@@ -28,6 +28,7 @@ Use npm and the single `package-lock.json`; do not generate a second package man
 | Better Auth / Prisma adapter | 1.7.12 |
 | Zod | 4.6.7 |
 | AI SDK / React / Google adapter | 7.0.153 / 4.0.157 / 4.0.105 |
+| Framer Motion / Lucide React | 14.6.0 / 1.61.0 |
 | Playwright test (development only) | 1.64.1 |
 
 Next.js and React peer constraints were checked against npm metadata. TypeScript 5.9 keeps this small scaffold on the established compiler API. ESLint 10 was evaluated, but Next.js's bundled React/import/accessibility plugins still declare ESLint 9 peer ranges, producing an invalid dependency tree with 10. ESLint 9.39.5 is pinned for peer compatibility without force/legacy-peer flags. **ESLint 9 is end-of-life** and emits a deprecation warning; revisit the lint stack when the plugins support 10. This is a development-tool limitation, not a runtime feature. Type packages are also pinned in `package.json`.
