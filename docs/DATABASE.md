@@ -18,13 +18,33 @@ The user reports Healthy project status and provided a `pg_pgrst_no_exposed_sche
 
 ### Official CA for certificate-chain errors
 
-Download your project's CA certificate from Supabase Database Settings > SSL Configuration ([official SSL guide](https://supabase.com/docs/guides/platform/ssl-enforcement)). Save the PEM certificate as `.certs/supabase-ca.crt` in this repository; the local directory exists and is ignored by Git. Add this nonsecret path to the existing private `.env.local` file:
+Download your project's CA certificate from Supabase Database Settings > SSL Configuration ([official SSL guide](https://supabase.com/docs/guides/platform/ssl-enforcement)). Save the public PEM CA certificate as `.certs/supabase-ca.crt`. The Git ignore rules allow only that exact public certificate; all other files in .certs remain ignored. Add this nonsecret path to the existing private `.env.local` file:
 
 ```dotenv
 DATABASE_SSL_CA_FILE=.certs/supabase-ca.crt
 ```
 
-Then run `npm run db:inspect`. No password/URL change is needed for this CA setting. The shared Node-only `lib/server/postgres-config.ts` validates that the supplied PEM is a CA certificate, configures pg with that CA and rejectUnauthorized=true, and avoids URL SSL parameters overwriting that object. Prisma's migration engine receives the same certificate via sslcert with sslmode=require and sslaccept=strict. No TLS verification is disabled. The actual certificate and successful database trust remain unverified until the downloaded file is provided.
+Then run `npm run db:inspect`. No password/URL change is needed for this CA setting. The shared Node-only `lib/server/postgres-config.ts` validates that the supplied PEM is a CA certificate, configures pg with that CA and rejectUnauthorized=true, and avoids URL SSL parameters overwriting that object. Prisma's migration engine receives the same certificate via sslcert with sslmode=require and sslaccept=strict. No TLS verification is disabled. The present local file was checked as CA-only PEM without a private key; format validation does not independently establish its download provenance or live database trust.
+
+### Vercel: certificate available at build and runtime
+
+`DATABASE_SSL_CA_FILE` is a file path, not a file upload. Prisma loads its config during `npm run build`; the certificate must therefore exist in Vercel's source checkout before `prisma generate`. It must also reach the deployed Node functions because the pg adapter reads it at runtime.
+
+The Supabase CA certificate contains public trust material and can be versioned. Include **only** `.certs/supabase-ca.crt`, together with `.gitignore` and `next.config.ts`, in your next reviewed commit/deployment source. Keep passwords, DATABASE_URL, API/session keys and private-key files out of Git. No file belongs in `public/` for this setup.
+
+The repository now has an exact Git exception for that public CA and `outputFileTracingIncludes: { "/*": ["./.certs/supabase-ca.crt"] }` in next.config.ts. This narrowly supplies it to server bundles despite the dynamic fs read's turbopackIgnore annotations. Do not trace the whole workspace or .certs directory. An alternate CA filename/path also needs an explicit Git/tracing decision; the current packaging only includes this filename.
+
+In Vercel Project Settings > Environment Variables, for the environments you intend to deploy, set:
+
+```dotenv
+DATABASE_SSL_CA_FILE=.certs/supabase-ca.crt
+```
+
+Use no `@` alias, no local `D:\...` path, and no `/vercel/path0` absolute path. Vercel's Linux filesystem also requires exact filename case. Keep DATABASE_URL and the existing authentication/AI secrets as server-only project environment variables, preferably Sensitive for Preview/Production. Changes take effect in a **new deployment**. Do not echo connection strings or certificate variables into build logs. The public CA is not a private key or database credential, but its authenticity must come from the Supabase project dashboard.
+
+The agent prepared packaging locally and did not push, deploy, change Vercel settings, run migrations/seed or connect to the production database. Local build/tracing checks are not proof of a successful Vercel deployment or database handshake.
+
+References: [Next.js 16 output tracing](https://nextjs.org/docs/app/api-reference/config/next-config-js/output), [Vercel Node additional files](https://vercel.com/docs/functions/runtimes/node-js#including-additional-files), [Vercel environment variables](https://vercel.com/docs/environment-variables), [Sensitive settings](https://vercel.com/docs/environment-variables/sensitive-environment-variables).
 
 Do not fix SELF_SIGNED_CERT_IN_CHAIN using NODE_TLS_REJECT_UNAUTHORIZED=0, no-verify modes, or rejectUnauthorized=false. Obtain the expected CA from the authenticated project dashboard rather than trusting an arbitrary certificate observed on the failing connection. Hostname/certificate errors after configuring the official CA require further diagnosis, not bypassing verification.
 

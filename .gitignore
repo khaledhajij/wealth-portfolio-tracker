@@ -12,7 +12,9 @@ next-env.d.ts
 !.env.example
 *.pem
 *.key
-/.certs/
+# Only the verified public Supabase CA may be versioned. Other cert/key files stay local.
+/.certs/*
+!/.certs/supabase-ca.crt
 /.vercel/
 
 # Local logs, scratch files and OS files

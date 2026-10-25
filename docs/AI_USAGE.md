@@ -1,5 +1,19 @@
 # AI usage log
 
+## 2026-10-25 - Vercel public CA packaging
+
+- User reported Prisma config loading failure in Vercel build due to missing/unreadable DATABASE_SSL_CA_FILE and asked how to make the CA available safely. Read current repo instructions/PLAN/status/Git/Prisma/pg/Next config/ignore/database docs; preserved existing pending style changes. Memory search no relevant hit, no subagents. Consulted official Next 16.4.3 output tracing, Vercel environment/sensitive-variable/Node runtime and Supabase SSL documentation.
+- Validated the existing local CA file without printing PEM contents or private connection settings: valid X509, certificate authority, certificate-only PEM, no private key. Did not fabricate/change the CA or independently attest its download provenance.
+- Changed ignore rules to expose only the exact public CA, leaving environment/private key/other certificate files ignored. Added exact outputFileTracingIncludes entry in next.config.ts; TLS code behavior unchanged, only tracing comment updated. Prepared README/DATABASE/env-template/PLAN setup for the same relative path on Vercel. No private env edits, staging or commit.
+- Build (including Prisma generation/TypeScript) and lint passed. Created an ignored read-only trace helper: 17 server traces include the public CA, no root private env/other certificates traced, 16 browser bundles have no PEM header. Git inspection lists only .certs/supabase-ca.crt as eligible within .certs. These local checks do not prove a Vercel deployment or database handshake.
+- Updated STATUS and this log with actual results and user-side source/env/redeployment steps. No deployment, remote push, Vercel settings action, database/provider call, migration/seed, TLS bypass or new phase. Kept earlier factual work intact.
+
+## 2026-10-25 - Popup matched to dashboard theme
+
+- User requested the popup share the dashboard theme. Read current instructions/PLAN/status/Git/style/component sources; initial Git clean, memory search no relevant hit. Used existing React guidance; no subagents, new skill or dependency. Changed app/globals.css presentation to dashboard paper/sage/green/serif/border/input/error/focus styling, preserving popup/controller and server behavior.
+- Build (including TypeScript) and lint passed. Reran existing explicitly TEST ONLY controlled-SSE popup checks at 1440/390/320px; all passed, including keyboard/close/cancellation/error/viewport/reduced-motion behavior. Inspected desktop screenshot; own helper browser/server stopped. No new tests written; no unit/database/live-provider run or provider request for the styling change.
+- Updated PLAN, ASSISTANT, STATUS and this factual log. No secrets, dependencies, application logic, remote actions, commit or next-phase work.
+
 ## 2026-10-25 - Phase 6 popup chat presentation
 
 - User requested AI popup chat and attached a React component snippet. Read the file and current instructions/PLAN/status/Git/dependencies/source; initial workspace contained prior work, which was preserved. No applicable AGENTS/relevant memory hit or subagents. Applied React guidance; consulted official Motion reduced-bundle/reduced-motion, Lucide React and native-dialog docs plus npm metadata.

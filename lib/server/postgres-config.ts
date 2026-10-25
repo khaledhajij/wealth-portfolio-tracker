@@ -19,8 +19,8 @@ function databaseCa() {
   const configured = process.env.DATABASE_SSL_CA_FILE;
   if (!configured) return undefined;
   try {
-    // Runtime-provided certificate, not a bundle dependency. Do not trace the
-    // entire workspace (including local configuration) into the server output.
+    // Dynamically configured path: next.config.ts includes only the public CA.
+    // Do not trace the entire workspace/local configuration into server output.
     const path = resolve(/* turbopackIgnore: true */ process.cwd(), configured);
     const pem = readFileSync(/* turbopackIgnore: true */ path, "utf8");
     if (!new X509Certificate(pem).ca) throw new Error();

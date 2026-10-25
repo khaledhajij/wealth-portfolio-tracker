@@ -53,7 +53,7 @@ Copy-Item .env.example .env.local
 ```
 
 - `DATABASE_URL`: private PostgreSQL connection for Prisma CLI and internal scripts. URL-encode password characters; never paste the URL into chat/logs.
-- `DATABASE_SSL_CA_FILE`: optional path to the official Supabase CA downloaded from Database Settings > SSL Configuration. Save it as `.certs/supabase-ca.crt` and set this variable in `.env.local` to `.certs/supabase-ca.crt` when certificate trust fails. The folder is ignored; certificate verification stays enabled. See [TLS setup](docs/DATABASE.md).
+- `DATABASE_SSL_CA_FILE`: optional path to the official Supabase CA downloaded from Database Settings > SSL Configuration. Use `.certs/supabase-ca.crt` locally and on Vercel. Only this public CA file is allowed through Git ignore rules and explicitly traced into server bundles; other certificate/key files stay ignored. Certificate verification stays enabled. Include the public CA in your deployment source; setting a path alone does not upload it. See [TLS/Vercel setup](docs/DATABASE.md).
 - `BETTER_AUTH_SECRET`: random server secret of at least 32 characters; `npm run auth:setup` generates it locally if missing.
 - `BETTER_AUTH_URL`: exact application origin, normally `http://localhost:3000` for local development. Non-loopback environments require HTTPS and Secure cookies.
 - `DEMO_ACCOUNT_PASSWORD`: private 12-128-character password used to seed the four synthetic accounts. `auth:setup` generates a random value if missing; read it privately in `.env.local`, never paste it into chat or commit it. Existing credentials are preserved, not reset by seed.
