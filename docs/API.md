@@ -22,7 +22,7 @@ Phase 5 adds allocationByAssetType to the shared valuation/summary result (asset
 
 Existing GET portfolio/individual-position/history routes remain. Existing PATCH on the individual position is a compatible alias of the valuation operation; both use the same updatePrice service. History GET remains bounded to the latest 100 rows; pagination is deferred. No movement update/delete method exists.
 
-Money, quantities, values and percentages are decimal **strings**. Timestamps are ISO strings; stock/crypto prices are manual observations, not market feeds. Summary uses exact unrounded Decimal values; displayTotal rounds the final sum to cents, half-up. Empty summary returns 0 / 0.00 and an empty positions array. Quantity increases do not reduce cash or execute a purchase.
+Money, quantities, values and percentages are decimal **strings**. Timestamps are ISO strings; stock/crypto prices are manual, not market feeds. New position prices, price updates and movements receive server recording time when saved, not a client observation/occurrence date. Existing historical timestamps and response field names priceAsOf/occurredAt are retained; no migration or history rewrite. A recent recording timestamp does not prove a fresh market quote. Summary uses exact unrounded Decimal values; displayTotal rounds the final sum to cents, half-up. Empty summary returns 0 / 0.00 and an empty positions array. Quantity increases do not reduce cash or execute a purchase.
 
 Example request bodies (synthetic values):
 
@@ -31,15 +31,13 @@ Example request bodies (synthetic values):
   "assetType": "STOCK",
   "label": "Synthetic stock",
   "symbol": "DEMO",
-  "unitPrice": "50",
-  "priceAsOf": "2026-10-24T10:00:00.000Z"
+  "unitPrice": "50"
 }
 ```
 
 ```json
 {
   "signedQuantity": "2",
-  "occurredAt": "2026-10-24T10:00:00.000Z",
   "requestKey": "a-new-client-generated-operation-key",
   "note": "External holding adjustment, not a purchase"
 }
@@ -47,8 +45,7 @@ Example request bodies (synthetic values):
 
 ```json
 {
-  "unitPrice": "60",
-  "priceAsOf": "2026-10-25T00:00:00.000Z"
+  "unitPrice": "60"
 }
 ```
 
@@ -56,7 +53,7 @@ Example request bodies (synthetic values):
 
 Production composition in lib/server/portfolios.ts binds the services to requireUser. Every service invocation derives identity from Better Auth's verified session; no method accepts client userId/role. Reads require an explicit Owner/Editor/Viewer Membership for the selected portfolio. Writes require Owner/Editor. Resource access constrains positionId **and** portfolioId; membership in another portfolio does not grant access. Unknown roles are denied. The new summary/list share the same membership-scoped nested read; no private result cache is introduced.
 
-Write bodies are strict Zod objects: extra identity/role/actor fields are rejected. Header/query identity claims are unused. Unit prices accept at most 20 integer/8 fractional digits; signed quantities at most 18 integer/10 fractional digits, nonzero. Numbers/exponents/NaN/infinity, negative prices, future timestamps and submillisecond timestamp precision are rejected before database coercion. Symbols are trimmed/uppercased and rechecked for length after case conversion. IDs containing whitespace are invalid. Cash requires symbol USD, unit price 1 and movement precision of cents. The resulting nonnegative quantity must remain below 10^18.
+Write bodies are strict Zod objects: extra identity/role/actor fields are rejected. Header/query identity claims are unused. Unit prices accept at most 20 integer/8 fractional digits; signed quantities at most 18 integer/10 fractional digits, nonzero. Numbers/exponents/NaN/infinity, negative prices and all client-supplied priceAsOf/occurredAt fields are rejected before database coercion. Symbols are trimmed/uppercased and rechecked for length after case conversion. IDs containing whitespace are invalid. Cash requires symbol USD, unit price 1 and movement precision of cents. The resulting nonnegative quantity must remain below 10^18.
 
 Financial HTTP mutation requests require a verified matching Origin and application/json, with an 8 KiB actual streamed-body bound. These transport checks precede service execution; malformed JSON can return 400 before session evaluation. Valid anonymous requests return 401. Services themselves still authenticate and validate, so another server caller cannot bypass these rules by skipping a Route Handler.
 
@@ -79,7 +76,7 @@ Movement writes execute these steps in a **single PostgreSQL serializable intera
 
 1. Lock the selected user's Membership with FOR SHARE and verify the current write role. Future membership updates must wait until this transaction finishes.
 2. Lock the target Position with SELECT ... FOR UPDATE, constraining both its ID and portfolio ID. Missing/foreign resources return 404.
-3. Validate the input, then look up the globally unique requestKey. If found, compare portfolio/position/creator/quantity/time/note. An identical retry returns the existing DTO; conflicting contents return 409 without exposing another movement.
+3. Validate the input, then look up the globally unique requestKey. If found, compare portfolio/position/creator/quantity/note. Time is server-owned and excluded from request comparison. An identical retry returns the existing DTO including its original timestamp; conflicting contents return 409 without exposing another movement.
 4. Read SUM(signedQuantity) for this position and add the proposed signed delta using Decimal. Reject negative/out-of-range resulting quantities and invalid cash precision.
 5. INSERT the new movement and commit. No history update/delete and no automatic cash write.
 

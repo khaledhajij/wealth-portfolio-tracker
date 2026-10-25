@@ -117,14 +117,16 @@ async function verify(db: PrismaClient) {
     await tx.membership.create({ data: { userId: "demo-owner", role: "VIEWER", portfolioId: foreignId } });
   }, { timeout: 30000 });
   const base = `/api/portfolios/${portfolioId}`;
-  const observedAt = new Date().toISOString();
-  const positionBody = { assetType: "STOCK", label: "Synthetic API test", symbol: "TEST", unitPrice: "50", priceAsOf: observedAt };
-  const movementBody = { signedQuantity: "10", occurredAt: observedAt, requestKey: randomUUID() };
+
+  const positionBody = { assetType: "STOCK", label: "Synthetic API test", symbol: "TEST", unitPrice: "50" };
+  const movementBody = { signedQuantity: "10", requestKey: randomUUID() };
 
   stage = "HTTP access matrix and strict validation";
   assert.equal((await call<Summary>(`${base}/summary`, "GET", owner)).totalValue, "0");
   for (const cookie of [owner, editor, viewer]) assert.deepEqual(await call(`${base}/positions`, "GET", cookie), []);
+  const positionBefore = Date.now();
   const stock = await call<Position>(`${base}/positions`, "POST", owner, positionBody, 201);
+  assert.ok(Date.parse(stock.priceAsOf) >= positionBefore && Date.parse(stock.priceAsOf) <= Date.now());
   const stockPath = `${base}/positions/${stock.id}`;
   const cash = await call<Position>(`${base}/positions`, "POST", editor, { ...positionBody, assetType: "CASH", label: "Synthetic cash", symbol: "USD", unitPrice: "1" }, 201);
   const foreign = await call<Position>(`/api/portfolios/${foreignId}/positions`, "POST", other, positionBody, 201);
@@ -135,7 +137,7 @@ async function verify(db: PrismaClient) {
   for (const [path, method, body] of [
     [`${base}/positions`, "POST", positionBody],
     [`${stockPath}/movements`, "POST", movementBody],
-    [`${stockPath}/valuation`, "PATCH", { unitPrice: "60", priceAsOf: observedAt }],
+    [`${stockPath}/valuation`, "PATCH", { unitPrice: "60" }],
   ] as const) {
     await call(path, method, "", body, 401);
     await call(path, method, viewer, body, 403, { "x-user-id": "demo-owner", "x-role": "OWNER" });
@@ -145,7 +147,7 @@ async function verify(db: PrismaClient) {
   await call(foreignPath, "GET", owner, undefined, 404);
   await call(`${foreignPath}/movements`, "GET", owner, undefined, 404);
   await call(`${foreignPath}/movements`, "POST", owner, movementBody, 404);
-  await call(`${foreignPath}/valuation`, "PATCH", owner, { unitPrice: "2", priceAsOf: observedAt }, 404);
+  await call(`${foreignPath}/valuation`, "PATCH", owner, { unitPrice: "2" }, 404);
   await call(`${base}/positions`, "POST", owner, positionBody, 409);
   for (const body of [
     { ...positionBody, userId: "demo-owner" }, { ...positionBody, role: "OWNER" },
@@ -156,8 +158,10 @@ async function verify(db: PrismaClient) {
   for (const signedQuantity of ["0", "-0.0", "NaN", "1e2", "0.12345678901", 1]) {
     await call(`${stockPath}/movements`, "POST", owner, { ...movementBody, signedQuantity }, 400);
   }
+  await call(`${stockPath}/movements`, "POST", owner, { ...movementBody, occurredAt: "2026-01-01T00:00:00.000Z" }, 400);
+  await call(`${stockPath}/valuation`, "PATCH", owner, { unitPrice: "50", priceAsOf: "2026-01-01T00:00:00.000Z" }, 400);
   await call(`${stockPath}/movements`, "POST", owner, { ...movementBody, createdBy: "demo-editor" }, 400);
-  await call(`${stockPath}/valuation`, "PATCH", owner, { unitPrice: "60", priceAsOf: observedAt }, 403, { Origin: "https://untrusted.example.invalid" });
+  await call(`${stockPath}/valuation`, "PATCH", owner, { unitPrice: "60" }, 403, { Origin: "https://untrusted.example.invalid" });
   const malformed = await fetch(`${origin}${stockPath}/movements`, { method: "POST", headers: { Cookie: owner, Origin: origin, "Content-Type": "application/json" }, body: "{", signal: AbortSignal.timeout(20000) });
   assert.equal(malformed.status, 400);
   console.log("PASS: HTTP session/role/nonmember/resource isolation, sanitized errors, invalid input and origin checks");
@@ -175,21 +179,25 @@ async function verify(db: PrismaClient) {
   console.log("PASS: chat session/membership/scope/input gates and explicit disabled-provider response; no provider contacted");
 
   stage = "Decimal valuations and duplicate requests over HTTP";
+  const movementBefore = Date.now();
   const opening = await call<Movement>(`${stockPath}/movements`, "POST", owner, movementBody);
+  assert.ok(Date.parse(opening.occurredAt) >= movementBefore && Date.parse(opening.occurredAt) <= Date.now());
   assert.deepEqual(await call(`${stockPath}/movements`, "POST", owner, movementBody), opening);
   await call(`${stockPath}/movements`, "POST", owner, { ...movementBody, signedQuantity: "11" }, 409);
   await call(`${stockPath}/movements`, "POST", editor, movementBody, 409);
   await call(`${stockPath}/movements`, "POST", editor, { ...movementBody, signedQuantity: "-11", requestKey: randomUUID() }, 400);
   await call(`${base}/positions/${cash.id}/movements`, "POST", editor, { ...movementBody, signedQuantity: "100", requestKey: randomUUID() });
   await call(`${base}/positions/${cash.id}/movements`, "POST", owner, { ...movementBody, signedQuantity: "0.001", requestKey: randomUUID() }, 400);
-  await call(`${base}/positions/${cash.id}/valuation`, "PATCH", owner, { unitPrice: "2", priceAsOf: observedAt }, 400);
+  await call(`${base}/positions/${cash.id}/valuation`, "PATCH", owner, { unitPrice: "2" }, 400);
   assert.equal((await call<Summary>(`${base}/summary`, "GET", viewer)).totalValue, "600");
-  await call(`${stockPath}/valuation`, "PATCH", editor, { unitPrice: "60", priceAsOf: observedAt });
+  const priceBefore = Date.now();
+  const priceUpdate = await call<Position>(`${stockPath}/valuation`, "PATCH", editor, { unitPrice: "60" });
+  assert.ok(Date.parse(priceUpdate.priceAsOf) >= priceBefore && Date.parse(priceUpdate.priceAsOf) <= Date.now());
   const repriced = await call<Summary>(`${base}/summary`, "GET", owner);
   assert.equal(repriced.totalValue, "700");
   assert.equal(repriced.positions.find((row) => row.id === stock.id)?.quantity, "10");
   assert.equal(repriced.positions.find((row) => row.id === stock.id)?.unitPrice, "60");
-  await call(stockPath, "PATCH", owner, { unitPrice: "50", priceAsOf: observedAt }); // Existing route stays compatible.
+  await call(stockPath, "PATCH", owner, { unitPrice: "50" }); // Existing route stays compatible.
   await call(`${stockPath}/movements`, "POST", editor, { ...movementBody, signedQuantity: "2", requestKey: randomUUID() });
   assert.equal((await call<Summary>(`${base}/summary`, "GET", editor)).totalValue, "700");
   const rows = await call<PositionList>(`${base}/positions`, "GET", viewer);
@@ -214,7 +222,8 @@ async function verify(db: PrismaClient) {
   const options = { toolCallId: "synthetic-db-check", messages: [], context: {} };
   const toolSummary = summaryOutput.parse(await tools.getPortfolioSummary.execute!({}, options));
   assert.equal(toolSummary.totalValue, "700.03");
-  assert.equal(toolSummary.manualPriceWindow.oldest, observedAt);
+  assert.equal(toolSummary.manualPriceWindow.oldest, cash.priceAsOf);
+  assert.equal(toolSummary.manualPriceWindow.newest, fraction.priceAsOf);
   const toolPositions = positionsOutput.parse(await tools.listPositions.execute!({}, options));
   assert.equal(toolPositions.positions.find((row) => row.symbol === "TEST")?.quantity, "12");
   assert.equal(toolPositions.positions.find((row) => row.symbol === "USD")?.quantity, "100");

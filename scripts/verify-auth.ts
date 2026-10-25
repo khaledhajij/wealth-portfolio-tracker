@@ -83,9 +83,9 @@ async function verify(db: PrismaClient) {
     await assert.rejects(editorService.getPortfolio("demo-secondary"), denial(404));
     await assert.rejects(ownerService.getPosition("demo-primary", "demo-crypto"), denial(404));
     await assert.rejects(ownerService.listMovements("demo-primary", "demo-crypto"), denial(404));
-    const observedAt = new Date().toISOString();
-    const price = { unitPrice: "1", priceAsOf: observedAt };
-    const movement = { signedQuantity: "1", occurredAt: observedAt, requestKey: randomUUID() };
+
+    const price = { unitPrice: "1" };
+    const movement = { signedQuantity: "1", requestKey: randomUUID() };
     const input = { ...price, assetType: "STOCK", symbol: "AUTHCHECK", label: "Synthetic auth check" };
     await assert.rejects(viewerService.addPosition("demo-primary", input), denial(403));
     await assert.rejects(viewerService.recordMovement("demo-primary", "demo-stock", movement), denial(403));

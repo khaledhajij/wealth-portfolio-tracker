@@ -10,8 +10,8 @@ import { mutationBody, api } from "../lib/server/http";
 import { hashPassword, verifyPassword } from "better-auth/crypto";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
-const movement = { signedQuantity: "2", occurredAt: timestamp, requestKey: "test-operation" };
-const price = { unitPrice: "50", priceAsOf: timestamp };
+const movement = { signedQuantity: "2", requestKey: "test-operation" };
+const price = { unitPrice: "50" };
 const input = { ...price, assetType: "STOCK", symbol: "TEST", label: "Synthetic test" };
 const status = (expected: number) => (error: unknown) => error instanceof ServiceError && error.status === expected;
 
@@ -40,8 +40,8 @@ function fixture(initialRole: string | null = "OWNER", existingMovement?: {
     },
     position: {
       findFirst: async (query: { where: { id: string; portfolioId: string } }) => query.where.id === row.id && query.where.portfolioId === row.portfolioId ? row : null,
-      create: async () => { mutations++; return row; },
-      update: async () => { mutations++; return row; },
+      create: async ({ data }: { data: { priceAsOf: Date } }) => { mutations++; return { ...row, priceAsOf: data.priceAsOf }; },
+      update: async ({ data }: { data: { priceAsOf: Date } }) => { mutations++; return { ...row, priceAsOf: data.priceAsOf }; },
     },
     positionMovement: {
       findUnique: async () => existingMovement ?? null,
@@ -254,15 +254,15 @@ test("balance aggregation and insertion run inside one transaction after the pos
   assert.equal(f.mutations(), 1); assert.equal(inside, false);
 });
 
-test("contracts reject whitespace IDs, submillisecond timestamps and uppercase-expanded symbols", () => {
+test("contracts reject whitespace IDs, client timestamps and uppercase-expanded symbols", () => {
   assert.equal(resourceId.safeParse(" ").success, false);
   assert.equal(resourceId.safeParse("portfolio a").success, false);
   assert.equal(positionInput.safeParse({ ...input, symbol: "ß".repeat(32) }).success, false);
   assert.equal(priceInput.safeParse({ ...price, priceAsOf: "2026-01-01T00:00:00.0001Z" }).success, false);
-  assert.equal(priceInput.safeParse({ ...price, priceAsOf: "2026-01-01T02:00:00.123+02:00" }).success, true);
+  assert.equal(priceInput.safeParse({ ...price, priceAsOf: "2026-01-01T02:00:00.123+02:00" }).success, false);
 });
 
-test("writes reject identity injection, invalid scales, future times and negative balances", async () => {
+test("writes reject identity injection, invalid scales, client times and negative balances", async () => {
   assert.equal(positionInput.safeParse({ ...input, userId: "owner" }).success, false);
   assert.equal(movementInput.safeParse({ ...movement, createdBy: "owner", role: "OWNER" }).success, false);
   for (const value of [0, "0", "NaN", "1e3", "0.12345678901"]) assert.equal(movementInput.safeParse({ ...movement, signedQuantity: value }).success, false);
@@ -278,6 +278,46 @@ test("private HTTP responses never cache, and unknown errors are sanitized", asy
   assert.equal(response.status, 503);
   assert.equal(response.headers.get("cache-control"), "private, no-store");
   assert.deepEqual(await response.json(), { code: "UNAVAILABLE", error: "Service unavailable. Check server configuration and database connectivity." });
+});
+
+test("position creation, price changes and new movements receive server recording times", async () => {
+  const f = fixture();
+  const before = Date.now();
+  const added = await f.service.addPosition("portfolio-a", input);
+  const updated = await f.service.updatePrice("portfolio-a", "position-a", price);
+  const recorded = await f.service.recordMovement("portfolio-a", "position-a", movement);
+  const after = Date.now();
+  for (const value of [added.priceAsOf, updated.priceAsOf, recorded.occurredAt]) {
+    assert.ok(Date.parse(value) >= before && Date.parse(value) <= after);
+    assert.equal(value, new Date(value).toISOString());
+  }
+  assert.equal(f.mutations(), 3);
+});
+
+test("client timestamp overrides cannot reach any timestamped write", async () => {
+  const f = fixture();
+  for (const value of [timestamp, "2999-01-01T00:00:00.000Z", "not-a-date"]) {
+    for (const [operation, body] of [
+      [() => f.service.addPosition("portfolio-a", { ...input, priceAsOf: value }), { ...input, priceAsOf: value }],
+      [() => f.service.updatePrice("portfolio-a", "position-a", { ...price, priceAsOf: value }), { ...price, priceAsOf: value }],
+      [() => f.service.recordMovement("portfolio-a", "position-a", { ...movement, occurredAt: value }), { ...movement, occurredAt: value }],
+    ] as const) {
+      const response = await api(async () => operation());
+      assert.equal(response.status, 400, JSON.stringify(Object.keys(body)));
+    }
+  }
+  assert.equal(f.mutations(), 0);
+});
+
+test("movement replay retains the original server time and note remains part of operation identity", async () => {
+  const existing = { id: "original", portfolioId: "portfolio-a", positionId: "position-a", createdBy: "session-user",
+    signedQuantity: new Prisma.Decimal("2"), occurredAt: new Date(timestamp), note: null };
+  const f = fixture("OWNER", existing);
+  const first = await f.service.recordMovement("portfolio-a", "position-a", movement);
+  const replay = await f.service.recordMovement("portfolio-a", "position-a", { ...movement });
+  assert.equal(first.occurredAt, timestamp); assert.deepEqual(replay, first);
+  await assert.rejects(f.service.recordMovement("portfolio-a", "position-a", { ...movement, note: "changed note" }), status(409));
+  assert.equal(f.mutations(), 0);
 });
 
 test("HTTP failures have stable codes and creation responses support 201", async () => {

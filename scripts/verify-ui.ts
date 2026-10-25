@@ -54,6 +54,8 @@ async function createPosition(page: Page, name: string, symbol: string, price: s
   await page.getByRole("button", { name: "Add position", exact: true }).first().click();
   const dialog = page.getByRole("dialog"); await check(dialog).toBeVisible();
   await check(dialog.getByLabel("Asset type")).toBeFocused();
+  await check(dialog.locator('input[type="datetime-local"]')).toHaveCount(0);
+  await check(dialog.getByText("Price recorded at (UTC) is set automatically by the server when saved.", { exact: true })).toBeVisible();
   await dialog.getByLabel("Asset type").selectOption(type);
   await dialog.getByLabel("Position name").fill(name);
   if (type === "CASH") {
@@ -75,6 +77,7 @@ async function movement(page: Page, symbol: string, quantity: string, decrease =
   await page.getByRole("button", { name: `Record movement for ${symbol}`, exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Direction").selectOption(decrease ? "DECREASE" : "INCREASE");
+  await check(dialog.locator('input[type="datetime-local"]')).toHaveCount(0);
   await dialog.getByLabel("Quantity", { exact: true }).fill(quantity);
   await dialog.getByRole("button", { name: "Record movement", exact: true }).click();
   return dialog;
@@ -283,7 +286,7 @@ try {
   await check(viewer.getByRole("button", { name: "Add position", exact: true })).toHaveCount(0);
   await check(viewer.getByRole("button", { name: /^Record movement for/ })).toHaveCount(0);
   await check(viewer.getByRole("button", { name: /^Update price for/ })).toHaveCount(0);
-  const denied = await viewer.request.post(`${origin}/api/portfolios/${id}/positions`, { headers: { Origin: origin, "x-role": "OWNER" }, data: { assetType: "STOCK", label: "Denied", symbol: "DENIED", unitPrice: "1", priceAsOf: new Date().toISOString() } });
+  const denied = await viewer.request.post(`${origin}/api/portfolios/${id}/positions`, { headers: { Origin: origin, "x-role": "OWNER" }, data: { assetType: "STOCK", label: "Denied", symbol: "DENIED", unitPrice: "1" } });
   assert.equal(denied.status(), 403);
   await viewer.screenshot({ path: ".playwright-mcp/dashboard-viewer.png", fullPage: true });
   stage = "Viewer creates own portfolio; portfolio-scoped roles and isolated lists";

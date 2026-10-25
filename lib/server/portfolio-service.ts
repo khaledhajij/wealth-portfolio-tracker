@@ -156,7 +156,7 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
         if (data.assetType === "CASH" && (data.symbol !== "USD" || !new Decimal(data.unitPrice).eq(1))) {
           throw new ServiceError(400, "Cash requires symbol USD and unit price 1.");
         }
-        const row = await tx.position.create({ data: { ...data, portfolioId, priceUpdatedBy: userId, priceAsOf: new Date(data.priceAsOf) } });
+        const row = await tx.position.create({ data: { ...data, portfolioId, priceUpdatedBy: userId, priceAsOf: new Date() } });
         return positionDto(row);
       });
     },
@@ -171,7 +171,7 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
         const existing = await tx.positionMovement.findUnique({ where: { requestKey: data.requestKey } });
         if (existing) {
           if (existing.portfolioId !== portfolioId || existing.positionId !== positionId || existing.createdBy !== userId ||
-              !existing.signedQuantity.eq(data.signedQuantity) || existing.occurredAt.getTime() !== Date.parse(data.occurredAt) ||
+              !existing.signedQuantity.eq(data.signedQuantity) ||
               existing.note !== (data.note ?? null)) throw new ServiceError(409, "Request key conflicts with another operation.");
           return movementDto(existing);
         }
@@ -180,7 +180,9 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
         if (balance.isNegative()) throw new ServiceError(400, "Resulting quantity cannot be negative.");
         // Bound aggregates as well as individual numeric columns.
         if (balance.gte("1000000000000000000")) throw new ServiceError(400, "Resulting quantity is too large.");
-        const movement = await tx.positionMovement.create({ data: { ...data, portfolioId, positionId, createdBy: userId, occurredAt: new Date(data.occurredAt) } });
+        // Only a new insertion receives a server recording time. Replays above
+        // keep their original append-only record, including its timestamp.
+        const movement = await tx.positionMovement.create({ data: { ...data, portfolioId, positionId, createdBy: userId, occurredAt: new Date() } });
         return movementDto(movement);
       }, true); // A concurrent identical key is reread in a fresh transaction.
     },
@@ -192,7 +194,7 @@ export function createPortfolioService(db: PrismaClient, currentUser: UserReader
         const data = priceInput.parse(input);
         if (row.assetType === "CASH" && !new Decimal(data.unitPrice).eq(1)) throw new ServiceError(400, "Cash unit price is fixed at 1.");
         return positionDto(await tx.position.update({ where: { id_portfolioId: { id: positionId, portfolioId } },
-          data: { ...data, priceAsOf: new Date(data.priceAsOf), priceUpdatedBy: userId } }));
+          data: { ...data, priceAsOf: new Date(), priceUpdatedBy: userId } }));
       });
     },
   };

@@ -75,7 +75,7 @@ export function createReadTools(
   return {
     getPortfolioSummary: tool({
       description:
-        "Read the selected portfolio's server-calculated USD total and asset allocation. Prices are manual; includes oldest/newest observation timestamps. No arguments.",
+        "Read the selected portfolio's server-calculated USD total and asset allocation. Prices are manual; includes oldest/newest price timestamps. New entries use server recording time; historical timestamps are unchanged. No arguments.",
       inputSchema: readToolInput,
       outputSchema: summaryOutput,
       execute: (input) =>
